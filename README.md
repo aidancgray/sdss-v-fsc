@@ -1,3 +1,6 @@
-# sdss-v-fsc
+# SDSS-V Focal Surface Camera (FSC) Control Software
 
-# 5/12/2020 - First commit
+## Components:
+- Trius SXVR-H694 CCD Camera
+- SX Filter Wheel
+- Custom multi-axis stages from Standa Ltd.
