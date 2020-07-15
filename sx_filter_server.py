@@ -227,7 +227,7 @@ if __name__ == "__main__":
     filter_slot, filter_name = connect_to_wheel()
     
     # setup Remote TCP Server
-    HOST, PORT = "192.168.1.14", 9997
+    HOST, PORT = '', 9998
 
     try:
         asyncio.run(main(HOST,PORT))

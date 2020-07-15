@@ -388,7 +388,7 @@ if __name__ == "__main__":
     blobEvent=threading.Event()
     
     # setup Remote TCP Server
-    HOST, PORT = '', 9998
+    HOST, PORT = '', 9999
 
     try:
         asyncio.run(main(HOST,PORT))

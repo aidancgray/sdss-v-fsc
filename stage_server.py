@@ -6,11 +6,12 @@
 #
 # This a server for the 3 Standa stages R, Theta, Z
 
+from astropy.io import fits
+from ctypes import *
 import asyncio
 import threading
 import subprocess
 import logging
-from astropy.io import fits
 import os
 import sys
 import time
@@ -41,7 +42,7 @@ def scan_for_devices():
         result = lib.get_enumerate_device_controller_name(devenum, dev_ind, byref(controller_name))
 
         if result == Result.Ok:
-            devices_list.append(enum_name)
+            devices_list.append(repr(enum_name))
 
     return devices_list, dev_count
 
@@ -161,9 +162,7 @@ if __name__ == "__main__":
     # Set the current directory and get the path to pyximc.py
     cur_dir = os.path.abspath(os.path.dirname(__file__))
     ximc_dir = os.path.join(cur_dir, "ximc-2.12.1/ximc")
-    print("XIMC Directory: "+ximc_dir)
     ximc_package_dir = os.path.join(ximc_dir, "crossplatform", "wrappers", "python")
-
     sys.path.append(ximc_package_dir)
 
     from pyximc import *
@@ -173,7 +172,19 @@ if __name__ == "__main__":
 
     print("Number of devices: "+str(dev_count))
     try:
-        print("List of devices: "+dev_list[0])
+        print("List of devices:")
+        for i in dev_list:
+        	print(i)
+
+        	if '49E5' in repr(i):
+        		axis_r = lib.open_device(i)
+        	elif '49F3' in repr(i):
+        		axis_z = lib.open_device(i)
+        	elif '3F53' in repr(i):
+        		axis_th = lib.open_device(i)
+        	else:
+        		print("No correct devices")
+
     except IndexError:
         print("No devices to list...")
 
@@ -181,11 +192,14 @@ if __name__ == "__main__":
     log = log_start()
 
     # setup Remote TCP Server
-    HOST, PORT = '', 9996
+    HOST, PORT = '', 9997
 
     try:
         asyncio.run(main(HOST,PORT))
     except KeyboardInterrupt:
-        print('...Closing server...')
+        print('\n...Closing server...')
+        for n in [axis_r, axis_z, axis_th]:
+        	lib.close_device(byref(cast(n, POINTER(c_int))))
+        print('Done')
     except:
         print('Unknown error')
