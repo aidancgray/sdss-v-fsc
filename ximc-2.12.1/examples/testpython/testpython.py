@@ -77,6 +77,9 @@ def test_status(lib, device_id):
         print("Status.Ipwr: " + repr(x_status.Ipwr))
         print("Status.Upwr: " + repr(x_status.Upwr))
         print("Status.Iusb: " + repr(x_status.Iusb))
+        print("Status.CurPosition: " + repr(x_status.CurPosition))
+        print("Status.CurSpeed: " + repr(x_status.CurSpeed))
+        print("Status.MvCmdSts: " + repr(x_status.MvCmdSts))
         print("Status.Flags: " + repr(hex(x_status.Flags)))
 
 def test_get_position(lib, device_id):
@@ -85,7 +88,7 @@ def test_get_position(lib, device_id):
     result = lib.get_position(device_id, byref(x_pos))
     print("Result: " + repr(result))
     if result == Result.Ok:
-        print("Position: {0} steps, {1} microsteps".format(x_pos.Position, x_pos.uPosition))
+        print("Position: {0} steps, {1} microsteps, {2} encoder".format(x_pos.Position, x_pos.uPosition, x_pos.EncPosition))
     return x_pos.Position, x_pos.uPosition
 
 def test_left(lib, device_id):
@@ -191,7 +194,8 @@ open_name = None
 if len(sys.argv) > 1:
     open_name = sys.argv[1]
 elif dev_count > 0:
-    open_name = lib.get_device_name(devenum, 0)
+    open_name = lib.get_device_name(devenum, 2)
+    print(open_name)
 elif sys.version_info >= (3,0):
     # use URI for virtual device when there is new urllib python3 API
     tempdir = tempfile.gettempdir() + "/testdevice.bin"
@@ -227,6 +231,8 @@ test_move(lib, device_id, startpos, ustartpos)
 test_wait_for_stop(lib, device_id, 100)
 test_status(lib, device_id)
 test_serial(lib, device_id)
+current_speed = test_get_speed(lib, device_id)
+test_set_speed(lib, device_id, current_speed * 2)
 
 print("\nClosing")
 lib.close_device(byref(cast(device_id, POINTER(c_int))))
