@@ -42,37 +42,154 @@ def scan_for_devices():
         result = lib.get_enumerate_device_controller_name(devenum, dev_ind, byref(controller_name))
 
         if result == Result.Ok:
-            devices_list.append(repr(enum_name))
+            devices_list.append(enum_name)
 
     return devices_list, dev_count
 
+# Returns relevant status information for all 3 devices
+def get_status(lib, open_devs):
+    all_status = ''
+    r_status = status_t()
+    t_status = status_t()
+    z_status = status_t()
+
+    r_result = lib.get_status(open_devs[0], byref(r_status))
+    t_result = lib.get_status(open_devs[1], byref(t_status))
+    z_result = lib.get_status(open_devs[2], byref(z_status))
+
+    if r_result == Result.Ok and t_result == Result.Ok and z_result == Result.Ok:
+        response, all_pos = get_position(lib, open_devs)
+        r_speed = 0.0125*get_speed(lib, open_devs[0])
+        t_speed = 518.4*get_speed(lib, open_devs[1])
+        z_speed = 0.00125*get_speed(lib, open_devs[2])
+
+        if response == 'OK':
+            all_status = "\nr: "+str(all_pos[0][0])+" mm\
+                        \n\u03B8: "+str(all_pos[1][0])+" arcsecs\
+                        \nz: "+str(all_pos[2][0])+" mm\
+                        \nEncoder counts: "+str(all_pos[0][1])+" : "+str(all_pos[1][1])+" : "+str(all_pos[2][1])+"\
+                        \nSpeeds: "+str(r_speed)+" mm/s : "+str(t_speed)+" arcsec/s : "+str(z_speed)+" mm/s"
+    else:
+        response = 'BAD: lib.get_status() failed'
+    return response, all_status
+
+# Returns the current position of the devices
+def get_position(lib, open_devs):
+    response = 'OK'
+    r_pos = get_position_t()
+    t_pos = get_position_t()
+    z_pos = get_position_t()
+
+    r_result = lib.get_position(open_devs[0], byref(r_pos))
+    t_result = lib.get_position(open_devs[1], byref(t_pos))
+    z_result = lib.get_position(open_devs[2], byref(z_pos))
+
+    all_pos = []
+
+    if r_result == Result.Ok and t_result == Result.Ok and z_result == Result.Ok:
+        # Convert the position from steps to mm (linear stages)
+        # or arcsecs for the rotation stage
+        r_pos_mm = 0.0125*(r_pos.Position + (r_pos.uPosition / 256))
+        t_pos_am = 518.4*(t_pos.Position + (t_pos.uPosition / 256))
+        z_pos_mm = 0.00125*(z_pos.Position + (z_pos.uPosition / 256))
+
+        # Convert the encoder positions to mm (liinear stages)
+        # or arcsecs for the rotation stage
+
+        # r_pos_enc = 0.000625*r_pos.EncPosition
+        # t_pos_enc = (25.9/60)*t_pos.EncPosition
+        # z_pos_enc = 0.0000625*z_pos.EncPosition
+
+        r_pos_enc = r_pos.EncPosition
+        t_pos_enc = t_pos.EncPosition
+        z_pos_enc = z_pos.EncPosition
+
+        all_pos = [[r_pos_mm, r_pos_enc], [t_pos_am, t_pos_enc], [z_pos_mm, z_pos_enc]]
+    else:
+        response = 'BAD: lib.get_position() failed'
+    return response, all_pos
+
+# return the set speed of the motors
+def get_speed(lib, device_id):
+    mvst = move_settings_t()
+    result = lib.get_move_settings(device_id, byref(mvst))
+    if result == Result.Ok:    
+        return mvst.Speed
+    else:
+        return 0
+
+# sets the speed of the desired motor
+def set_speed(lib, device_id, speed):
+    mvst = move_settings_t()
+    result = lib.get_move_settings(device_id, byref(mvst))
+
+    if result == Result.Ok:
+        mvst.Speed = int(speed)
+        result = lib.set_move_settings(device_id, byref(mvst))
+        if result == Result.Ok:
+            return 'OK'
+        else:
+            return 'BAD: set_move_settings() failed'
+    else:
+        return 'BAD: get_move_settings() failed'
+
 # command handler, to parse the client's data more precisely
 def handle_command(log, writer, data): 
-    response = 'BAD: Invalid Command'
+    response = ''
     commandList = data.split()
 
-    # try:
-    #     # check if command is Expose, Set, or Get
-    #     if commandList[0] == 'expose':
-    #         if len(commandList) == 3:
-    #             if commandList[1] == 'object' or commandList[1] == 'flat' or commandList[1] == 'dark' or commandList[1] == 'bias':
-    #                 expType = commandList[1]
-    #                 expTime = commandList[2]
-    #                 try:
-    #                     float(expTime)
-    #                     if float(expTime) > 0:                    
-    #                         expTime = float(expTime)
-    #                         fileName = exposure(expType, expTime)
-    #                         response = 'OK\n'+'FILENAME: '+fileName
-    #                     else:
-    #                         response = 'BAD: Invalid Exposure Time'
-    #                 except ValueError:
-    #                     response = 'BAD: Invalid Exposure Time'
-    #     elif commandList[0] == 'set':
-    #         if len(commandList) >= 1:
-    #             response = setParams(commandList[1:])
-    # except IndexError:
-    #     response = 'BAD: Invalid Command'
+    try:
+        # check if command is move, offset, or ...
+        if commandList[0] == 'move' and len(commandList) > 1:
+            # send move commands (create new threads) for each axis given
+            print('...Moving...')
+
+        elif commandList[0] == 'offset' and len(commandList) > 1:
+            # send offset commands (create new threads) for each axis given
+            print('...Offsetting...')
+
+        elif commandList[0] == 'home' and len(commandList) >= 1:
+            # home given axes or all axes if len(commandList) == 1 
+            print('...Homing...')
+
+        elif commandList[0] == 'speed' and len(commandList) > 1:
+            # set the given axes to the given speeds
+            print('...Setting speeds...')
+            for axis in commandList[1:]:
+                if axis[:2] == 'r=':
+                    try:
+                        # set r axis speed
+                        r_set_speed = float(axis[2:]) / 0.0125
+                        response = set_speed(lib, open_devs[0], r_set_speed)
+
+                    except ValueError:
+                        response = 'BAD: Invalid speed, must be int'
+
+                elif axis[:2] == 't=':
+                    try:
+                        # set theta axis speed
+                        t_set_speed = float(axis[2:]) / 518.4
+                        response = set_speed(lib, open_devs[1], t_set_speed)
+                        
+                    except ValueError:
+                        response = 'BAD: Invalid speed, must be int'
+
+                elif axis[:2] == 'z=':
+                    try:
+                        # set z axis speed
+                        z_set_speed = float(axis[2:]) / 0.00125
+                        response = set_speed(lib, open_devs[2], z_set_speed)
+
+                    except ValueError:
+                        response = 'BAD: Invalid speed, must be int'
+
+                else:
+                    response = 'BAD: Invalid set speed command' 
+        else:
+            response = 'BAD: Invalid Command'
+
+    except IndexError:
+        response = 'BAD: Invalid Command'
         
     # tell the client the result of their command & log it
     log.info('RESPONSE: '+response)
@@ -99,14 +216,15 @@ async def handle_client(reader, writer):
             # check if the command thread is running
             try:
                 if comThread.is_alive():
-                    response = 'BUSY'
+                    busyState = 'BUSY'
                 else:
-                    response = 'IDLE'
+                    busyState = 'IDLE'
             except:
-                response = 'IDLE'
+                busyState = 'IDLE'
 
-            response = response+\
-                '\n*** ADD STAGE STATUS HERE ***'
+            response, all_status = get_status(lib, open_devs)
+
+            response = response + '\n' + busyState + '\n' + all_status
 
             # send current status to open connection & log it
             log.info('RESPONSE: '+response)
@@ -165,41 +283,68 @@ if __name__ == "__main__":
     ximc_package_dir = os.path.join(ximc_dir, "crossplatform", "wrappers", "python")
     sys.path.append(ximc_package_dir)
 
-    from pyximc import *
-    from pyximc import MicrostepMode
+    try: 
+        from pyximc import *
+    except ImportError as err:
+        print ("Can't import pyximc module. The most probable reason is that you changed the relative location of the testpython.py and pyximc.py files. See developers' documentation for details.")
+        exit()
 
     dev_list, dev_count = scan_for_devices()
+    open_devs = ['','','']
 
     print("Number of devices: "+str(dev_count))
     try:
-        print("List of devices:")
+        #print("List of devices:")
+        all_device_check = True
         for i in dev_list:
-        	print(i)
+            #print(repr(i))
 
-        	if '49E5' in repr(i):
-        		axis_r = lib.open_device(i)
-        	elif '49F3' in repr(i):
-        		axis_z = lib.open_device(i)
-        	elif '3F53' in repr(i):
-        		axis_th = lib.open_device(i)
-        	else:
-        		print("No correct devices")
+            if '49E5' in repr(i):
+                axis_r = lib.open_device(i)
+                #print('r id: ' + repr(axis_r))
+                if axis_r > 0:
+                    open_devs[0] = axis_r
+                else:
+                    all_device_check = False
+                    #print('BAD, R stage connection failed')
+
+            elif '3F53' in repr(i):
+                axis_t = lib.open_device(i)
+                #print('\u03B8 id: ' + repr(axis_t))
+                if axis_t > 0:
+                    open_devs[1] = axis_t
+                else:
+                    all_device_check = False
+                    #print('BAD, Theta stage connection failed')
+
+            elif '49F3' in repr(i):
+                axis_z = lib.open_device(i)
+                #print('z id: ' + repr(axis_z))
+                if axis_z > 0:
+                    open_devs[2] = axis_z
+                else:
+                    all_device_check = False
+                    #print('BAD, Z stage connection failed')
+
+        if all_device_check:
+            # for i in open_devs:
+            #     print(repr(i))
+
+            fileDir = os.path.expanduser('~')+'/Pictures/'
+            log = log_start()
+
+            # setup Remote TCP Server
+            HOST, PORT = '', 9997
+
+            try:
+                asyncio.run(main(HOST,PORT))
+            except KeyboardInterrupt:
+                print('\n...Closing server...')
+                for n in open_devs:
+                	lib.close_device(byref(cast(n, POINTER(c_int))))
+                print('Done')
+            except:
+                print('Unknown error')
 
     except IndexError:
         print("No devices to list...")
-
-    fileDir = os.path.expanduser('~')+'/Pictures/'
-    log = log_start()
-
-    # setup Remote TCP Server
-    HOST, PORT = '', 9997
-
-    try:
-        asyncio.run(main(HOST,PORT))
-    except KeyboardInterrupt:
-        print('\n...Closing server...')
-        for n in [axis_r, axis_z, axis_th]:
-        	lib.close_device(byref(cast(n, POINTER(c_int))))
-        print('Done')
-    except:
-        print('Unknown error')
