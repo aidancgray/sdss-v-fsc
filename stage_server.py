@@ -15,6 +15,7 @@ import logging
 import os
 import sys
 import time
+import math
 
 # create an event log
 def log_start():
@@ -59,9 +60,13 @@ def get_status(lib, open_devs):
 
     if r_result == Result.Ok and t_result == Result.Ok and z_result == Result.Ok:
         response, all_pos = get_position(lib, open_devs)
-        r_speed = 0.0125*get_speed(lib, open_devs[0])
-        t_speed = 518.4*get_speed(lib, open_devs[1])
-        z_speed = 0.00125*get_speed(lib, open_devs[2])
+        r_speed, r_uspeed = get_speed(lib, open_devs[0])
+        t_speed, t_uspeed = get_speed(lib, open_devs[1])
+        z_speed, z_uspeed = get_speed(lib, open_devs[2])
+
+        r_speed = 0.0125*(r_speed + (r_uspeed/256))
+        t_speed = 518.4*(t_speed + (t_uspeed/256))
+        z_speed = 0.00125*(z_speed + (z_uspeed/256))
 
         if response == 'OK':
             all_status = "\nr: "+str(all_pos[0][0])+" mm\
@@ -114,7 +119,7 @@ def get_speed(lib, device_id):
     mvst = move_settings_t()
     result = lib.get_move_settings(device_id, byref(mvst))
     if result == Result.Ok:    
-        return mvst.Speed
+        return mvst.Speed, mvst.uSpeed
     else:
         return 0
 
@@ -124,7 +129,15 @@ def set_speed(lib, device_id, speed):
     result = lib.get_move_settings(device_id, byref(mvst))
 
     if result == Result.Ok:
+        # split the integer from the decimal
+        u_speed, speed = math.modf(speed)
+
+        # convert the decimal to #/256
+        u_speed = u_speed * 256
+
+        # prepare move_settings_t struct
         mvst.Speed = int(speed)
+        mvst.uSpeed = int(u_speed)
         result = lib.set_move_settings(device_id, byref(mvst))
         if result == Result.Ok:
             return 'OK'
@@ -132,6 +145,13 @@ def set_speed(lib, device_id, speed):
             return 'BAD: set_move_settings() failed'
     else:
         return 'BAD: get_move_settings() failed'
+
+def move(lib, device_id, distance, udistance):
+    result = lib.command_move(device_id, distance, udistance)
+    if result == Result.Ok:
+        return 'OK'
+    else:
+        return 'BAD: Move command failed'
 
 # command handler, to parse the client's data more precisely
 def handle_command(log, writer, data): 
@@ -163,7 +183,7 @@ def handle_command(log, writer, data):
                         response = set_speed(lib, open_devs[0], r_set_speed)
 
                     except ValueError:
-                        response = 'BAD: Invalid speed, must be int'
+                        response = 'BAD: Invalid speed'
 
                 elif axis[:2] == 't=':
                     try:
@@ -172,7 +192,7 @@ def handle_command(log, writer, data):
                         response = set_speed(lib, open_devs[1], t_set_speed)
                         
                     except ValueError:
-                        response = 'BAD: Invalid speed, must be int'
+                        response = 'BAD: Invalid speed'
 
                 elif axis[:2] == 'z=':
                     try:
@@ -181,7 +201,7 @@ def handle_command(log, writer, data):
                         response = set_speed(lib, open_devs[2], z_set_speed)
 
                     except ValueError:
-                        response = 'BAD: Invalid speed, must be int'
+                        response = 'BAD: Invalid speed'
 
                 else:
                     response = 'BAD: Invalid set speed command' 
@@ -194,7 +214,7 @@ def handle_command(log, writer, data):
     # tell the client the result of their command & log it
     log.info('RESPONSE: '+response)
     writer.write((response+'\n').encode('utf-8'))
-    writer.write(('---------------------------------------------------\n').encode('utf-8'))
+    #writer.write(('---------------------------------------------------\n').encode('utf-8'))
 
 # async client handler, for multiple connections
 async def handle_client(reader, writer):
@@ -202,10 +222,10 @@ async def handle_client(reader, writer):
     
     # loop to continually handle incoming data
     while request != 'quit':        
-        request = (await reader.read(255)).decode('utf8')
+        request = (await reader.read(255)).decode('utf8').strip()
         print(request.encode('utf8'))
         log.info('COMMAND: '+request)
-        writer.write(('COMMAND: '+request.upper()).encode('utf8'))    
+        writer.write(('COMMAND: '+request.upper()+'\n').encode('utf8'))    
 
         response = 'BAD'
         # check if data is empty, a status query, or potential command
@@ -262,7 +282,7 @@ async def handle_client(reader, writer):
                 comThread = threading.Thread(target=handle_command, args=(log, writer, dataDec,))
                 comThread.start()
 
-        writer.write(('---------------------------------------------------\n').encode('utf-8'))                          
+        #writer.write(('---------------------------------------------------\n').encode('utf-8'))                          
         await writer.drain()
     writer.close()
 
