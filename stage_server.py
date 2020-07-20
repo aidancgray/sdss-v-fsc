@@ -17,6 +17,11 @@ import sys
 import time
 import math
 
+# change depending on input (mm/deg/arcsec/rad/etc)
+R_CONST = 0.025 # mm
+T_CONST = 0.144 # deg
+Z_CONST = 0.00125 # mm
+
 # create an event log
 def log_start():
     scriptDir = os.path.dirname(os.path.abspath(__file__))
@@ -64,16 +69,16 @@ def get_status(lib, open_devs):
         t_speed, t_uspeed = get_speed(lib, open_devs[1])
         z_speed, z_uspeed = get_speed(lib, open_devs[2])
 
-        r_speed = 0.0125*(r_speed + (r_uspeed/256))
-        t_speed = 518.4*(t_speed + (t_uspeed/256))
-        z_speed = 0.00125*(z_speed + (z_uspeed/256))
+        r_speed = R_CONST*(r_speed + (r_uspeed/256))
+        t_speed = T_CONST*(t_speed + (t_uspeed/256))
+        z_speed = Z_CONST*(z_speed + (z_uspeed/256))
 
         if response == 'OK':
             all_status = "\nr: "+str(all_pos[0][0])+" mm\
-                        \n\u03B8: "+str(all_pos[1][0])+" arcsecs\
+                        \n\u03B8: "+str(all_pos[1][0])+" deg\
                         \nz: "+str(all_pos[2][0])+" mm\
                         \nEncoder counts: "+str(all_pos[0][1])+" : "+str(all_pos[1][1])+" : "+str(all_pos[2][1])+"\
-                        \nSpeeds: "+str(r_speed)+" mm/s : "+str(t_speed)+" arcsec/s : "+str(z_speed)+" mm/s"
+                        \nSpeeds: "+str(r_speed)+" mm/s : "+str(t_speed)+" deg/s : "+str(z_speed)+" mm/s"
     else:
         response = 'BAD: lib.get_status() failed'
     return response, all_status
@@ -94,9 +99,9 @@ def get_position(lib, open_devs):
     if r_result == Result.Ok and t_result == Result.Ok and z_result == Result.Ok:
         # Convert the position from steps to mm (linear stages)
         # or arcsecs for the rotation stage
-        r_pos_mm = 0.0125*(r_pos.Position + (r_pos.uPosition / 256))
-        t_pos_am = 518.4*(t_pos.Position + (t_pos.uPosition / 256))
-        z_pos_mm = 0.00125*(z_pos.Position + (z_pos.uPosition / 256))
+        r_pos_mm = R_CONST*(r_pos.Position + (r_pos.uPosition / 256))
+        t_pos_am = T_CONST*(t_pos.Position + (t_pos.uPosition / 256))
+        z_pos_mm = Z_CONST*(z_pos.Position + (z_pos.uPosition / 256))
 
         # Convert the encoder positions to mm (liinear stages)
         # or arcsecs for the rotation stage
@@ -146,8 +151,14 @@ def set_speed(lib, device_id, speed):
     else:
         return 'BAD: get_move_settings() failed'
 
-def move(lib, device_id, distance, udistance):
-    result = lib.command_move(device_id, distance, udistance)
+def move(lib, device_id, distance):
+    # split the integer from the decimal
+    u_distance, distance = math.modf(distance)
+
+    # convert the decimal to #/256
+    u_distance = u_distance * 256
+
+    result = lib.command_move(device_id, int(distance), int(u_distance))
     if result == Result.Ok:
         return 'OK'
     else:
@@ -162,7 +173,37 @@ def handle_command(log, writer, data):
         # check if command is move, offset, or ...
         if commandList[0] == 'move' and len(commandList) > 1:
             # send move commands (create new threads) for each axis given
-            print('...Moving...')
+            #print('...Moving...')
+            for axis in commandList[1:]:
+                if axis[:2] == 'r=':
+                    try:
+                        # move r axis
+                        r_move = float(axis[2:]) / R_CONST
+                        response = move(lib, open_devs[0], r_move)
+
+                    except ValueError:
+                        response = 'BAD: Invalid move'
+
+                elif axis[:2] == 't=':
+                    try:
+                        # move theta axis
+                        t_move = float(axis[2:]) / T_CONST
+                        response = move(lib, open_devs[1], t_move)
+                        
+                    except ValueError:
+                        response = 'BAD: Invalid move'
+
+                elif axis[:2] == 'z=':
+                    try:
+                        # move z axis
+                        z_move = float(axis[2:]) / Z_CONST
+                        response = move(lib, open_devs[2], z_move)
+
+                    except ValueError:
+                        response = 'BAD: Invalid speed'
+
+                else:
+                    response = 'BAD: Invalid set speed command' 
 
         elif commandList[0] == 'offset' and len(commandList) > 1:
             # send offset commands (create new threads) for each axis given
@@ -174,12 +215,12 @@ def handle_command(log, writer, data):
 
         elif commandList[0] == 'speed' and len(commandList) > 1:
             # set the given axes to the given speeds
-            print('...Setting speeds...')
+            #print('...Setting speeds...')
             for axis in commandList[1:]:
                 if axis[:2] == 'r=':
                     try:
                         # set r axis speed
-                        r_set_speed = float(axis[2:]) / 0.0125
+                        r_set_speed = float(axis[2:]) / R_CONST
                         response = set_speed(lib, open_devs[0], r_set_speed)
 
                     except ValueError:
@@ -188,7 +229,7 @@ def handle_command(log, writer, data):
                 elif axis[:2] == 't=':
                     try:
                         # set theta axis speed
-                        t_set_speed = float(axis[2:]) / 518.4
+                        t_set_speed = float(axis[2:]) / T_CONST
                         response = set_speed(lib, open_devs[1], t_set_speed)
                         
                     except ValueError:
@@ -197,7 +238,7 @@ def handle_command(log, writer, data):
                 elif axis[:2] == 'z=':
                     try:
                         # set z axis speed
-                        z_set_speed = float(axis[2:]) / 0.00125
+                        z_set_speed = float(axis[2:]) / Z_CONST
                         response = set_speed(lib, open_devs[2], z_set_speed)
 
                     except ValueError:
@@ -226,6 +267,9 @@ async def handle_client(reader, writer):
         print(request.encode('utf8'))
         log.info('COMMAND: '+request)
         writer.write(('COMMAND: '+request.upper()+'\n').encode('utf8'))    
+
+        # get a list of all current threads
+        threadList = threading.enumerate()
 
         response = 'BAD'
         # check if data is empty, a status query, or potential command
