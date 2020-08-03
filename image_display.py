@@ -1,5 +1,5 @@
-#!/usr/bin/python3.8
-# file_watcher.py
+#!/usr/bin/python3
+# image_display.py
 # 5/21/2020
 # Aidan Gray
 # aidan.gray@idg.jhu.edu
