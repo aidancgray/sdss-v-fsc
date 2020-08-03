@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/python3
 # stage_server.py
 # 7/6/2020
 # Aidan Gray

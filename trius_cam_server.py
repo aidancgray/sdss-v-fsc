@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/python3
 # trius_cam_server.py
 # 4/27/2020
 # Aidan Gray
@@ -370,7 +370,7 @@ if __name__ == "__main__":
     imgNum, imgName = last_image(fileDir)
     log = log_start()
 
-    #p = subprocess.Popen([sys.executable, 'file_watcher.py', fileDir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    #p = subprocess.Popen([sys.executable, 'image_display.py', fileDir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     
     # connect to the local indiserver
     indiclient = connect_to_indi()

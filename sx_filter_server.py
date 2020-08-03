@@ -1,4 +1,4 @@
-#!/usr/bin/python3.8
+#!/usr/bin/python3
 # sx_filter_server.py
 # 4/27/2020
 # Aidan Gray
