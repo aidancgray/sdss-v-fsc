@@ -9,13 +9,12 @@
 from astropy.io import fits
 from ctypes import *
 import asyncio
-import threading
-import subprocess
 import logging
 import os
 import sys
 import time
 import math
+import threading
 
 # change depending on input (mm/deg/arcsec/rad/etc)
 R_CONST = 0.025 # mm
@@ -52,6 +51,18 @@ def scan_for_devices():
 
     return devices_list, dev_count
 
+# Returns BUSY or IDLE depending if the stage is moving
+def get_move_status(lib, device_id):
+    device_status = status_t()
+
+    result = lib.get_status(device_id, byref(device_status))
+    if result == Result.Ok:
+        move_state = device_status.MoveSts
+        if move_state != 0:
+            return 'BUSY'
+        else:
+            return 'IDLE'
+
 # Returns relevant status information for all 3 devices
 def get_status(lib, open_devs):
     all_status = ''
@@ -73,17 +84,21 @@ def get_status(lib, open_devs):
         t_speed = T_CONST*(t_speed + (t_uspeed/256))
         z_speed = Z_CONST*(z_speed + (z_uspeed/256))
 
+        r_move_state = get_move_status(lib, open_devs[0])
+        t_move_state = get_move_status(lib, open_devs[1])
+        z_move_state = get_move_status(lib, open_devs[2])
+
         if response == 'OK':
-            all_status = "\nr: "+str(all_pos[0][0])+" mm\
-                        \n\u03B8: "+str(all_pos[1][0])+" deg\
-                        \nz: "+str(all_pos[2][0])+" mm\
+            all_status = "\nr: "+str(round(all_pos[0][0],4))+" mm "+r_move_state+"\
+                        \n\u03B8: "+str(round(all_pos[1][0],4))+" deg "+t_move_state+"\
+                        \nz: "+str(round(all_pos[2][0],4))+" mm "+z_move_state+"\
                         \nEncoder counts: "+str(all_pos[0][1])+" : "+str(all_pos[1][1])+" : "+str(all_pos[2][1])+"\
-                        \nSpeeds: "+str(r_speed)+" mm/s : "+str(t_speed)+" deg/s : "+str(z_speed)+" mm/s"
+                        \nSpeeds: "+str(round(r_speed,4))+" mm/s : "+str(round(t_speed,4))+" deg/s : "+str(round(z_speed,4))+" mm/s"
     else:
-        response = 'BAD: lib.get_status() failed'
+        response = 'BAD: get_status() failed'
     return response, all_status
 
-# Returns the current position of the devices
+# Returns the current position of the devices in readable units
 def get_position(lib, open_devs):
     response = 'OK'
     r_pos = get_position_t()
@@ -103,21 +118,26 @@ def get_position(lib, open_devs):
         t_pos_am = T_CONST*(t_pos.Position + (t_pos.uPosition / 256))
         z_pos_mm = Z_CONST*(z_pos.Position + (z_pos.uPosition / 256))
 
-        # Convert the encoder positions to mm (liinear stages)
-        # or arcsecs for the rotation stage
-
-        # r_pos_enc = 0.000625*r_pos.EncPosition
-        # t_pos_enc = (25.9/60)*t_pos.EncPosition
-        # z_pos_enc = 0.0000625*z_pos.EncPosition
-
         r_pos_enc = r_pos.EncPosition
         t_pos_enc = t_pos.EncPosition
         z_pos_enc = z_pos.EncPosition
 
         all_pos = [[r_pos_mm, r_pos_enc], [t_pos_am, t_pos_enc], [z_pos_mm, z_pos_enc]]
     else:
-        response = 'BAD: lib.get_position() failed'
+        response = 'BAD: get_position() failed'
     return response, all_pos
+
+# Returns the current position of the given device in steps
+def get_step_position(lib, device_id):
+    response = 'OK'
+    device_pos = get_position_t()
+
+    result = lib.get_position(device_id, byref(device_pos))
+    if result == Result.Ok:
+        position = device_pos.Position + (device_pos.uPosition / 256)
+    else:
+        response = 'BAD: get_position() failed'
+    return position
 
 # return the set speed of the motors
 def get_speed(lib, device_id):
@@ -151,6 +171,7 @@ def set_speed(lib, device_id, speed):
     else:
         return 'BAD: get_move_settings() failed'
 
+# sends the given device an absolute position (in steps) to move to
 def move(lib, device_id, distance):
     # split the integer from the decimal
     u_distance, distance = math.modf(distance)
@@ -164,18 +185,34 @@ def move(lib, device_id, distance):
     else:
         return 'BAD: Move command failed'
 
+# homes the given device
+def home(lib, device_id):
+    result = lib.command_homezero(device_id)
+    print('done homing')
+    if result == Result.Ok:
+        return 'OK'
+    else:
+        return 'BAD: Home command failed'
+
+# soft stop the given device
+def soft_stop(lib, device_id):
+    result = lib.command_sstp(device_id)
+    if result == Result.Ok:
+        return 'OK'
+    else:
+        return 'BAD: Soft stop failed'
+
 # command handler, to parse the client's data more precisely
 def handle_command(log, writer, data): 
     response = ''
     commandList = data.split()
-
+    
     try:
-        # check if command is move, offset, or ...
+        # Move desired axes to absolute position, given in desired units
         if commandList[0] == 'move' and len(commandList) > 1:
-            # send move commands (create new threads) for each axis given
-            #print('...Moving...')
+            # send move commands for each axis given
             for axis in commandList[1:]:
-                if axis[:2] == 'r=':
+                if axis[:2] == 'r=' and get_move_status(lib, open_devs[0]) == 'IDLE':
                     try:
                         # move r axis
                         r_move = float(axis[2:]) / R_CONST
@@ -184,7 +221,7 @@ def handle_command(log, writer, data):
                     except ValueError:
                         response = 'BAD: Invalid move'
 
-                elif axis[:2] == 't=':
+                elif axis[:2] == 't=' and get_move_status(lib, open_devs[1]) == 'IDLE':
                     try:
                         # move theta axis
                         t_move = float(axis[2:]) / T_CONST
@@ -193,26 +230,118 @@ def handle_command(log, writer, data):
                     except ValueError:
                         response = 'BAD: Invalid move'
 
-                elif axis[:2] == 'z=':
+                elif axis[:2] == 'z=' and get_move_status(lib, open_devs[2]) == 'IDLE':
                     try:
                         # move z axis
                         z_move = float(axis[2:]) / Z_CONST
                         response = move(lib, open_devs[2], z_move)
 
                     except ValueError:
-                        response = 'BAD: Invalid speed'
+                        response = 'BAD: Invalid move'
 
                 else:
-                    response = 'BAD: Invalid set speed command' 
+                    response = 'BAD: Invalid move' 
 
+        # Offset desired axes from current position
         elif commandList[0] == 'offset' and len(commandList) > 1:
-            # send offset commands (create new threads) for each axis given
-            print('...Offsetting...')
+            # send offset commands for each axis given
+            for axis in commandList[1:]:
+                if axis[:2] == 'r=' and get_move_status(lib, open_devs[0]) == 'IDLE':
+                    try:
+                        # offset r axis
+                        r_cur_position = get_step_position(lib, open_devs[0])
+                        r_offset = float(axis[2:]) / R_CONST
+                        response = move(lib, open_devs[0], r_cur_position + r_offset)
 
-        elif commandList[0] == 'home' and len(commandList) >= 1:
+                    except ValueError:
+                        response = 'BAD: Invalid offset'
+
+                elif axis[:2] == 't=' and get_move_status(lib, open_devs[1]) == 'IDLE':
+                    try:
+                        # offset theta axis
+                        t_cur_position = get_step_position(lib, open_devs[1])
+                        t_offset = float(axis[2:]) / T_CONST
+                        response = move(lib, open_devs[1], t_cur_position + t_offset)
+                        
+                    except ValueError:
+                        response = 'BAD: Invalid offset'
+
+                elif axis[:2] == 'z=' and get_move_status(lib, open_devs[2]) == 'IDLE':
+                    try:
+                        # offset z axis
+                        z_cur_position = get_step_position(lib, open_devs[0])
+                        z_offset = float(axis[2:]) / Z_CONST
+                        response = move(lib, open_devs[2], z_cur_position + z_offset)
+
+                    except ValueError:
+                        response = 'BAD: Invalid offset'
+
+                else:
+                    response = 'BAD: Invalid offset'            
+
+        # Home desired stages
+        elif commandList[0] == 'home' and len(commandList) >= 2:
             # home given axes or all axes if len(commandList) == 1 
-            print('...Homing...')
+            for axis in commandList[1:]:
+                if axis[:2] == 'r' and get_move_status(lib, open_devs[0]) == 'IDLE':
+                    response = home(lib, open_devs[0])
 
+                elif axis[:2] == 't' and get_move_status(lib, open_devs[1]) == 'IDLE':
+                    t_cur_position = get_step_position(lib, open_devs[1])
+                    # theta limit switch is close to zero, so move +100steps from zero before homing
+                    if t_cur_position <= 100:
+                        move(lib, open_devs[1], 100)
+                        time.sleep(1)
+
+                        # don't send home command until stage is done moving
+                        while get_move_status(lib, open_devs[1]) == 'BUSY':
+                            time.sleep(0.1)
+
+                    # home immediately if stage is in good position
+                    response = home(lib, open_devs[1])
+
+                elif axis[:2] == 'z' and get_move_status(lib, open_devs[2]) == 'IDLE':
+                    response = home(lib, open_devs[2])
+
+                else:
+                    response = 'BAD: home failed' 
+
+        # Home all stages at once
+        elif commandList[0] == 'home' and len(commandList) == 1:
+            if get_move_status(lib, open_devs[0]) == 'IDLE':
+                response_r = home(lib, open_devs[0])
+            else:
+                response_r = 'BAD: r home failed, BUSY'
+
+            if get_move_status(lib, open_devs[1]) == 'IDLE':
+                t_cur_position = get_step_position(lib, open_devs[1])
+
+                # theta limit switch is close to zero, so move +100steps from zero before homing
+                if t_cur_position <= 100:
+                    move(lib, open_devs[1], 100)
+                    time.sleep(1)
+
+                    # don't send home command until stage is done moving
+                    while get_move_status(lib, open_devs[1]) == 'BUSY':
+                        time.sleep(0.1)
+
+                # home immediately if stage is in good position
+                response_t = home(lib, open_devs[1])    
+            else:
+                response_t = 'BAD: theta home failed'
+
+            if get_move_status(lib, open_devs[2]) == 'IDLE':
+                response_z = home(lib, open_devs[2])
+            else:
+                response_z = 'BAD: z home failed'
+
+            response = response_r + response_t + response_z
+            if 'BAD' in response:
+                response = 'BAD: Homing failed'
+            else:
+                response = 'OK'
+
+        # Set the speed
         elif commandList[0] == 'speed' and len(commandList) > 1:
             # set the given axes to the given speeds
             #print('...Setting speeds...')
@@ -251,10 +380,19 @@ def handle_command(log, writer, data):
 
     except IndexError:
         response = 'BAD: Invalid Command'
+    
+    # wait for all activity to cease. handle_command() is called as a new thread
+    # so this will not cause blocking 
+    time.sleep(1.5)
+    while get_move_status(lib, open_devs[0]) == 'BUSY' \
+        or get_move_status(lib, open_devs[1]) == 'BUSY' \
+        or get_move_status(lib, open_devs[2]) == 'BUSY':
         
+        time.sleep(0.1)
+
     # tell the client the result of their command & log it
     log.info('RESPONSE: '+response)
-    writer.write((response+'\n').encode('utf-8'))
+    writer.write((response+'\n---\n').encode('utf-8'))
     #writer.write(('---------------------------------------------------\n').encode('utf-8'))
 
 # async client handler, for multiple connections
@@ -268,26 +406,20 @@ async def handle_client(reader, writer):
         log.info('COMMAND: '+request)
         writer.write(('COMMAND: '+request.upper()+'\n').encode('utf8'))    
 
-        # get a list of all current threads
-        threadList = threading.enumerate()
-
         response = 'BAD'
         # check if data is empty, a status query, or potential command
         dataDec = request
         if dataDec == '':
             break
         elif 'status' in dataDec.lower():
-            # check if the command thread is running
-            try:
-                if comThread.is_alive():
+            busyState = 'IDLE'
+
+            # check if any of the stages are moving
+            for each in open_devs:
+                if get_move_status(lib, each) == 'BUSY':
                     busyState = 'BUSY'
-                else:
-                    busyState = 'IDLE'
-            except:
-                busyState = 'IDLE'
 
             response, all_status = get_status(lib, open_devs)
-
             response = response + '\n' + busyState + '\n' + all_status
 
             # send current status to open connection & log it
@@ -295,37 +427,34 @@ async def handle_client(reader, writer):
             writer.write((response+'\n').encode('utf-8'))
             
         elif 'stop' in dataDec.lower():
-            # check if the command thread is running
-            try:
-                if comThread.is_alive():
-                    response = 'OK: aborting move'
-                    #### ABORT CODE GOES HERE
-                    response = response+'\nMove Aborted'
+            busyState = 'IDLE'
+            stopList =[]
+
+            # check if any of the stages are moving
+            for each in open_devs:
+                if get_move_status(lib, each) == 'BUSY':
+                    busyState = 'BUSY'
+                    stopList.append(each)
+
+            if len(stopList) != 0:
+                for each in stopList:
+                    response = response + soft_stop(lib, each)
+
+                if 'BAD' in response:
+                    response = 'BAD: Stop failed'
                 else:
-                    response = 'BAD: idle'
-            except:
-                response = 'BAD: idle'
+                    response = 'OK: Move Aborted'
+
+            else:
+                response = 'BAD: All stages IDLE'
 
             # send current status to open connection & log it
             log.info('RESPONSE: '+response)
         
         else:
-            # check if the command thread is running, may fail if not created yet, hence try/except
-            try:
-                if comThread.is_alive():
-                    response = 'BAD: busy'
-                    # send current status to open connection & log it
-                    log.info('RESPONSE: '+response)
-                    writer.write((response+'\n').encode('utf-8'))
-                else:
-                    # create a new thread for the command
-                    comThread = threading.Thread(target=handle_command, args=(log, writer, dataDec,))
-                    comThread.start()
-            except:
-                # create a new thread for the command
-                comThread = threading.Thread(target=handle_command, args=(log, writer, dataDec,))
-                comThread.start()
-
+            # handler for all other commands besides status & stop
+            comThread = threading.Thread(target=handle_command, args=(log, writer, dataDec,))
+            comThread.start()
         #writer.write(('---------------------------------------------------\n').encode('utf-8'))                          
         await writer.drain()
     writer.close()
@@ -350,7 +479,7 @@ if __name__ == "__main__":
     try: 
         from pyximc import *
     except ImportError as err:
-        print ("Can't import pyximc module. The most probable reason is that you changed the relative location of the testpython.py and pyximc.py files. See developers' documentation for details.")
+        print ("Can't import pyximc module. The most probable reason is that you changed the relative location of the files..")
         exit()
 
     dev_list, dev_count = scan_for_devices()
@@ -405,7 +534,7 @@ if __name__ == "__main__":
             except KeyboardInterrupt:
                 print('\n...Closing server...')
                 for n in open_devs:
-                	lib.close_device(byref(cast(n, POINTER(c_int))))
+                    lib.close_device(byref(cast(n, POINTER(c_int))))
                 print('Done')
             except:
                 print('Unknown error')
