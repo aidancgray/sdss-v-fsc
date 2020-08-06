@@ -4,7 +4,6 @@
 # image display script.
 
 indiserver indi_sx_ccd indi_sx_wheel &
-nohup.out ./stage_server.py &
-nohup.out ./trius_cam_server.py &
-nohup.out ./sx_filter_server.py &
-nohup.out ./image_display.py &
+nohup ./stage_server.py &
+nohup ./trius_cam_server.py &
+nohup ./sx_filter_server.py &

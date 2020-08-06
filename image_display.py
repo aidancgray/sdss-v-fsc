@@ -31,7 +31,7 @@ def on_created(event):
     global d
     log.info(f"Created: {event.src_path}")
     d.set("file "+event.src_path)
-
+        
 if __name__ == "__main__":
     path = sys.argv[1]
     log = log_start()

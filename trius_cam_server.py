@@ -128,10 +128,20 @@ def connect_to_ccd():
     
     return ccd_exposure, ccd_ccd1, ccd_bin, ccd_abort, ccd_temp, ccd_cooler
 
+# run the image_display.py script as a subprocess
+#def run_image_display(filedir):
+#    global p
+#    if p.poll() is None:
+#        p.kill()
+#        p = subprocess.Popen([sys.executable, 'image_display.py', fileDir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+#    else:
+#        p = subprocess.Popen([sys.executable, 'image_display.py', fileDir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
 def last_image(fileDir):
     lastNum = 0
     lastImg = ''
     
+    # find the name and number of the last image in the current directory
     for f in os.listdir(fileDir):
         if os.path.isfile(os.path.join(fileDir, f)):
             file_name = os.path.splitext(f)[0]
@@ -244,8 +254,8 @@ def setParams(commandList):
                 imgNum, imgName = last_image(tempFileDir)
                 fileDir = tempFileDir
                 response = 'OK: File directory set to '+fileDir
-                #p.kill()
-                #p = subprocess.Popen([sys.executable, 'file_watcher.py', fileDir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                #run_image_display(fileDir)
+
             except FileNotFoundError:
                 response = 'BAD: Directory does not exist'
         else:
