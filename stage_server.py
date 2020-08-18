@@ -112,8 +112,7 @@ def get_position(lib, open_devs):
     all_pos = []
 
     if r_result == Result.Ok and t_result == Result.Ok and z_result == Result.Ok:
-        # Convert the position from steps to mm (linear stages)
-        # or arcsecs for the rotation stage
+        # Convert the position from steps to readable units (as specified at beginning of script)
         r_pos_mm = R_CONST*(r_pos.Position + (r_pos.uPosition / 256))
         t_pos_am = T_CONST*(t_pos.Position + (t_pos.uPosition / 256))
         z_pos_mm = Z_CONST*(z_pos.Position + (z_pos.uPosition / 256))
