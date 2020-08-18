@@ -260,8 +260,18 @@ if __name__ == "__main__":
 			#methodLoop = False
 			
 		elif '3' in method:
-			print("Sorry, not yet implemented")
-			#methodLoop = False
+			methodLoop = False
+
+			multiTargetLoop = True
+			while multiTargetLoop:
+				go_to_fp_coords(polar_coords)
+				tdata = input("Clock rotator and run again (y) or quit (n): ")
+				if 'n' in tdata.lower():
+					multiTargetLoop = False
+				elif 'y' in tdata.lower():
+					print("Running again")
+				else:
+					print("Please type 'y' or 'n'")
 			
 		else:
 			print("BAD: Select 1, 2, or 3")
