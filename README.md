@@ -7,12 +7,23 @@
 
 ## How to run servers:
 1. Startup the indiserver with ```indiserver indi_sx_ccd indi_sx_wheel```.
-2. Startup the hardware servers with ```python3 [server.py]```.
-3. Run the script to display new images with ```python3 file_watcher.py```.
+2. Startup the hardware servers (as background processes) with ```nohup ./[server.py] &```.
+3. Run the script to display new images with ```nohup ./image_display.py &```.
 
-## How to connect to servers:
+Alternatively, run the bash script ```./fsc_servers.sh```.
+
+## How to connect to servers directly:
 - Simple testing can be done with ```telnet [IP Address of NUC] [PORT]```.
   - Ports:
     - CCD Camera : 9999
     - Filter Wheel : 9998
-    - Stage Controller : 9997  
+    - Stage Controller : 9997
+
+## How to run the FSC Actor, which controls all servers given a specified list of coordinates:
+1. Startup all servers with ```./fsc_servers.sh```.
+2. Run ```./fsc_actor.py```.
+3. Follow the on-screen prompts:
+   a. Specify the desired image directory (or default).
+   b. Specify the CSV file containing the list of coordinates (or default for test file).
+   c. Specify the measurement method to use.
+
