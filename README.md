@@ -23,7 +23,7 @@ Alternatively, run the bash script ```./fsc_servers.sh```.
 1. Startup all servers with ```./fsc_servers.sh```.
 2. Run ```./fsc_actor.py```.
 3. Follow the on-screen prompts:
-   a. Specify the desired image directory (or default).
-   b. Specify the CSV file containing the list of coordinates (or default for test file).
-   c. Specify the measurement method to use.
+  1. Specify the desired image directory (or default).
+  2. Specify the CSV file containing the list of coordinates (or default for test file).
+  3. Specify the measurement method to use.
 
