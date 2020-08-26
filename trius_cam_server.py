@@ -125,8 +125,14 @@ def connect_to_ccd():
     while not(ccd_cooler):
         time.sleep(0.5)
         ccd_cooler=device_ccd.getSwitch("CCD_COOLER")
+
+    # get access to switching the CCD's image frame type
+    ccd_frame=device_ccd.getSwitch("CCD_FRAME_TYPE")
+    while not(ccd_frame):
+        time.sleep(0.5)
+        ccd_frame=device_ccd.getSwitch("CCD_FRAME_TYPE")    
     
-    return ccd_exposure, ccd_ccd1, ccd_bin, ccd_abort, ccd_temp, ccd_cooler
+    return ccd_exposure, ccd_ccd1, ccd_bin, ccd_abort, ccd_temp, ccd_cooler, ccd_frame
 
 # run the image_display.py script as a subprocess
 #def run_image_display(filedir):
@@ -156,8 +162,34 @@ def last_image(fileDir):
 
     return lastNum, lastImg
 
-def exposure(expType, expTime):
+def exposure(frameType, expTime):
     blobEvent.clear()    
+
+    # set the specified frame type
+    if frameType.lower() == 'light':
+        ccd_frame[0].s = PyIndi.ISS_ON
+        ccd_frame[1].s = PyIndi.ISS_OFF
+        ccd_frame[2].s = PyIndi.ISS_OFF
+        ccd_frame[3].s = PyIndi.ISS_OFF 
+        indiclient.sendNewSwitch(ccd_frame)
+    elif frameType.lower() == 'bias':
+        ccd_frame[0].s = PyIndi.ISS_OFF
+        ccd_frame[1].s = PyIndi.ISS_ON
+        ccd_frame[2].s = PyIndi.ISS_OFF
+        ccd_frame[3].s = PyIndi.ISS_OFF 
+        indiclient.sendNewSwitch(ccd_frame)
+    elif frameType.lower() == 'dark':
+        ccd_frame[0].s = PyIndi.ISS_OFF
+        ccd_frame[1].s = PyIndi.ISS_OFF
+        ccd_frame[2].s = PyIndi.ISS_ON
+        ccd_frame[3].s = PyIndi.ISS_OFF 
+        indiclient.sendNewSwitch(ccd_frame)
+    elif frameType.lower() == 'flat':
+        ccd_frame[0].s = PyIndi.ISS_OFF
+        ccd_frame[1].s = PyIndi.ISS_OFF
+        ccd_frame[2].s = PyIndi.ISS_OFF
+        ccd_frame[3].s = PyIndi.ISS_ON 
+        indiclient.sendNewSwitch(ccd_frame)
 
     # set the value for the next exposure
     ccd_exposure[0].value=expTime
@@ -181,19 +213,24 @@ def exposure(expType, expTime):
         global imgNum
         global imgName
         imgNum += 1
-        fileName = fileDir+'fsc-'+str(imgNum).zfill(8)+'.fits'
+        fileName = fileDir+'raw-'+str(imgNum).zfill(8)+'.fits'
         f = open(fileName, 'wb')
         f.write(image_data)
         f.close()
         imgName = fileName
         
-        # edit the FITS header
-        fitsFile = fits.open(fileName, 'update')
-        hdr = fitsFile[0].header
-        hdr.set('expType', expType)
-        fitsFile.close()
+        ### edit the FITS header. Software changed to use INDI frame setting
+        #fitsFile = fits.open(fileName, 'update')
+        #hdr = fitsFile[0].header
+        #hdr.set('frameType', expType)
+        #fitsFile.close()
         
     return fileName
+
+# get the exposure state of the CCD
+# return an integer >= 0
+def exposureState():
+    return int(ccd_exposure[0].value)
 
 # change the CCD's parameters based on what the client provides
 def setParams(commandList):
@@ -258,6 +295,44 @@ def setParams(commandList):
 
             except FileNotFoundError:
                 response = 'BAD: Directory does not exist'
+
+        # set the temperature setpoint (-40C - 0C)
+        elif 'frameType=' in i:
+            try:
+                frameType = i.replace('frameType=','')
+                if frameType.lower() == 'light':
+                    ccd_frame[0].s = PyIndi.ISS_ON
+                    ccd_frame[1].s = PyIndi.ISS_OFF
+                    ccd_frame[2].s = PyIndi.ISS_OFF
+                    ccd_frame[3].s = PyIndi.ISS_OFF 
+                    indiclient.sendNewSwitch(ccd_frame)
+                    response = 'OK: CCD frame type set to '+frameType
+                elif frameType.lower() == 'bias':
+                    ccd_frame[0].s = PyIndi.ISS_OFF
+                    ccd_frame[1].s = PyIndi.ISS_ON
+                    ccd_frame[2].s = PyIndi.ISS_OFF
+                    ccd_frame[3].s = PyIndi.ISS_OFF 
+                    indiclient.sendNewSwitch(ccd_frame)
+                    response = 'OK: CCD frame type set to '+frameType
+                elif frameType.lower() == 'dark':
+                    ccd_frame[0].s = PyIndi.ISS_OFF
+                    ccd_frame[1].s = PyIndi.ISS_OFF
+                    ccd_frame[2].s = PyIndi.ISS_ON
+                    ccd_frame[3].s = PyIndi.ISS_OFF 
+                    indiclient.sendNewSwitch(ccd_frame)
+                    response = 'OK: CCD frame type set to '+frameType
+                elif frameType.lower() == 'flat':
+                    ccd_frame[0].s = PyIndi.ISS_OFF
+                    ccd_frame[1].s = PyIndi.ISS_OFF
+                    ccd_frame[2].s = PyIndi.ISS_OFF
+                    ccd_frame[3].s = PyIndi.ISS_ON 
+                    indiclient.sendNewSwitch(ccd_frame)
+                    response = 'OK: CCD frame type set to '+frameType
+                else:
+                    response = 'BAD: Invalid frame type'
+            except ValueError:
+                response = 'BAD: Invalid frame type'
+
         else:
             response = 'BAD: Invalid Set'+'\n'+response
 
@@ -272,7 +347,7 @@ def handle_command(log, writer, data):
         # check if command is Expose, Set, or Get
         if commandList[0] == 'expose':
             if len(commandList) == 3:
-                if commandList[1] == 'object' or commandList[1] == 'flat' or commandList[1] == 'dark' or commandList[1] == 'bias':
+                if commandList[1] == 'light' or commandList[1] == 'dark' or commandList[1] == 'flat':
                     expType = commandList[1]
                     expTime = commandList[2]
                     try:
@@ -285,6 +360,14 @@ def handle_command(log, writer, data):
                             response = 'BAD: Invalid Exposure Time'
                     except ValueError:
                         response = 'BAD: Invalid Exposure Time'
+            elif len(commandList) == 2:
+                if commandList[1] == 'bias':
+                    expType = commandList[1]
+                    try:                    
+                        fileName = exposure(expType, 0.0)
+                        response = 'OK\n'+'FILENAME: '+fileName
+                    except ValueError:
+                        response = 'BAD: Invalid Exposure Time'
         elif commandList[0] == 'set':
             if len(commandList) >= 1:
                 response = setParams(commandList[1:])
@@ -294,7 +377,7 @@ def handle_command(log, writer, data):
     # tell the client the result of their command & log it
     log.info('RESPONSE: '+response)
     writer.write((response+'\n').encode('utf-8'))
-    writer.write(('---------------------------------------------------\n').encode('utf-8'))                          
+    writer.write(('-------------------------------------------EXP-DONE\n').encode('utf-8'))                          
 
 # async client handler, for multiple connections
 async def handle_client(reader, writer):
@@ -305,7 +388,7 @@ async def handle_client(reader, writer):
         request = (await reader.read(255)).decode('utf8')
         print(request.encode('utf8'))
         log.info('COMMAND: '+request)
-        writer.write(('COMMAND: '+request.upper()).encode('utf8'))    
+        writer.write(('COMMAND: '+request.upper()+'\n').encode('utf8'))    
 
         response = 'BAD'
         # check if data is empty, a status query, or potential command
@@ -313,19 +396,30 @@ async def handle_client(reader, writer):
         if dataDec == '':
             break
         elif 'status' in dataDec.lower():
+            response = 'OK'
             # check if the command thread is running
             try:
-                if comThread.is_alive():
-                    response = 'BUSY'
+                if exposureState() > 0:
+                    response = response + '\nBUSY'
                 else:
-                    response = 'IDLE'
+                    response = response + '\nIDLE'
             except:
-                response = 'IDLE'
+                response = response + '\nIDLE'
+
+            if ccd_frame[0].s == PyIndi.ISS_ON:
+                frameType = 'LIGHT'
+            elif ccd_frame[1].s == PyIndi.ISS_ON:
+                frameType = 'BIAS'
+            elif ccd_frame[2].s == PyIndi.ISS_ON:
+                frameType = 'DARK'
+            elif ccd_frame[3].s == PyIndi.ISS_ON:
+                frameType = 'FLAT'
 
             response = response+\
                 '\nBIN MODE: '+str(ccd_bin[0].value)+'x'+str(ccd_bin[1].value)+\
                 '\nCCD TEMP: '+str(ccd_temp[0].value)+\
-                'C\nFILE DIR: '+str(fileDir)+\
+                'C\nLAST FRAME TYPE: '+str(frameType)+\
+                '\nFILE DIR: '+str(fileDir)+\
                 '\nLAST IMAGE: '+str(imgName)
 
             # send current status to open connection & log it
@@ -342,12 +436,13 @@ async def handle_client(reader, writer):
                     blobEvent.set() #Ends the currently running thread.
                     response = response+'\nExposure Aborted'
                 else:
-                    response = 'BAD: idle'
+                    response = 'OK: idle'
             except:
-                response = 'BAD: idle'
+                response = 'OK: idle'
 
             # send current status to open connection & log it
             log.info('RESPONSE: '+response)
+            writer.write((response+'\n').encode('utf-8'))
 	    
         else:
             # check if the command thread is running, may fail if not created yet, hence try/except
@@ -366,7 +461,7 @@ async def handle_client(reader, writer):
                 comThread = threading.Thread(target=handle_command, args=(log, writer, dataDec,))
                 comThread.start()
 
-        writer.write(('---------------------------------------------------\n').encode('utf-8'))                          
+        writer.write(('-----------------------------------------------DONE\n').encode('utf-8'))                          
         await writer.drain()
     writer.close()
 
@@ -384,7 +479,7 @@ if __name__ == "__main__":
     
     # connect to the local indiserver
     indiclient = connect_to_indi()
-    ccd_exposure, ccd_ccd1, ccd_bin, ccd_abort, ccd_temp, ccd_cooler = connect_to_ccd()
+    ccd_exposure, ccd_ccd1, ccd_bin, ccd_abort, ccd_temp, ccd_cooler, ccd_frame = connect_to_ccd()
 
     # initialize ccd cooler on and temperature setpoint = -10C
     ccd_cooler[0].s=PyIndi.ISS_ON  # the "COOLER_ON" switch

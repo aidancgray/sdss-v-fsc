@@ -454,7 +454,7 @@ async def handle_client(reader, writer):
             # handler for all other commands besides status & stop
             comThread = threading.Thread(target=handle_command, args=(log, writer, dataDec,))
             comThread.start()
-        #writer.write(('---------------------------------------------------\n').encode('utf-8'))                          
+        writer.write(('---------------------------------------------------DONE\n').encode('utf-8'))                          
         await writer.drain()
     writer.close()
 

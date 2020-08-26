@@ -176,14 +176,15 @@ async def handle_client(reader, writer):
         if dataDec == '':
             break
         elif 'status' in dataDec.lower():
+            response = 'OK'
             # check if the command thread is running
             try:
                 if comThread.is_alive():
-                    response = 'BUSY'
+                    response = response + '\nBUSY'
                 else:
-                    response = 'IDLE'
+                    response = response + '\nIDLE'
             except:
-                response = 'IDLE'
+                response = response + '\nIDLE'
 
             response = response+\
                 '\nSLOT #: '+str(filter_slot[0].value)+\
@@ -209,7 +210,7 @@ async def handle_client(reader, writer):
                 comThread = threading.Thread(target=handle_command, args=(log, writer, dataDec,))
                 comThread.start()
 
-        writer.write(('---------------------------------------------------\n').encode('utf-8'))                          
+        writer.write(('---------------------------------------------------DONE\n').encode('utf-8'))                          
         await writer.drain()
     writer.close()
 
