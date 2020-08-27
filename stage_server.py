@@ -92,7 +92,10 @@ def get_status(lib, open_devs):
             all_status = "\nr: "+str(round(all_pos[0][0],4))+" mm "+r_move_state+"\
                         \n\u03B8: "+str(round(all_pos[1][0],4))+" deg "+t_move_state+"\
                         \nz: "+str(round(all_pos[2][0],4))+" mm "+z_move_state+"\
-                        \nEncoder counts: "+str(all_pos[0][1])+" : "+str(all_pos[1][1])+" : "+str(all_pos[2][1])+"\
+                        \nEncoder Counts:\
+                        \nr_e: "+str(all_pos[0][1])+"\
+                        \n\u03B8_e: "+str(all_pos[1][1])+"\
+                        \nz_e: "+str(all_pos[2][1])+"\
                         \nSpeeds: "+str(round(r_speed,4))+" mm/s : "+str(round(t_speed,4))+" deg/s : "+str(round(z_speed,4))+" mm/s"
     else:
         response = 'BAD: get_status() failed'
@@ -204,6 +207,10 @@ def soft_stop(lib, device_id):
 # command handler, to parse the client's data more precisely
 def handle_command(log, writer, data): 
     response = ''
+    response_r = ''
+    response_t = ''
+    response_z = ''
+
     commandList = data.split()
     
     try:
@@ -215,28 +222,28 @@ def handle_command(log, writer, data):
                     try:
                         # move r axis
                         r_move = float(axis[2:]) / R_CONST
-                        response = move(lib, open_devs[0], r_move)
+                        response_r = move(lib, open_devs[0], r_move)
 
                     except ValueError:
-                        response = 'BAD: Invalid move'
+                        response_r = 'BAD: Invalid move'
 
                 elif axis[:2] == 't=' and get_move_status(lib, open_devs[1]) == 'IDLE':
                     try:
                         # move theta axis
                         t_move = float(axis[2:]) / T_CONST
-                        response = move(lib, open_devs[1], t_move)
+                        response_t = move(lib, open_devs[1], t_move)
                         
                     except ValueError:
-                        response = 'BAD: Invalid move'
+                        response_t = 'BAD: Invalid move'
 
                 elif axis[:2] == 'z=' and get_move_status(lib, open_devs[2]) == 'IDLE':
                     try:
                         # move z axis
                         z_move = float(axis[2:]) / Z_CONST
-                        response = move(lib, open_devs[2], z_move)
+                        response_z = move(lib, open_devs[2], z_move)
 
                     except ValueError:
-                        response = 'BAD: Invalid move'
+                        response_z = 'BAD: Invalid move'
 
                 else:
                     response = 'BAD: Invalid move' 
@@ -250,30 +257,30 @@ def handle_command(log, writer, data):
                         # offset r axis
                         r_cur_position = get_step_position(lib, open_devs[0])
                         r_offset = float(axis[2:]) / R_CONST
-                        response = move(lib, open_devs[0], r_cur_position + r_offset)
+                        response_r = move(lib, open_devs[0], r_cur_position + r_offset)
 
                     except ValueError:
-                        response = 'BAD: Invalid offset'
+                        response_r = 'BAD: Invalid offset'
 
                 elif axis[:2] == 't=' and get_move_status(lib, open_devs[1]) == 'IDLE':
                     try:
                         # offset theta axis
                         t_cur_position = get_step_position(lib, open_devs[1])
                         t_offset = float(axis[2:]) / T_CONST
-                        response = move(lib, open_devs[1], t_cur_position + t_offset)
+                        response_t = move(lib, open_devs[1], t_cur_position + t_offset)
                         
                     except ValueError:
-                        response = 'BAD: Invalid offset'
+                        response_t = 'BAD: Invalid offset'
 
                 elif axis[:2] == 'z=' and get_move_status(lib, open_devs[2]) == 'IDLE':
                     try:
                         # offset z axis
                         z_cur_position = get_step_position(lib, open_devs[0])
                         z_offset = float(axis[2:]) / Z_CONST
-                        response = move(lib, open_devs[2], z_cur_position + z_offset)
+                        response_z = move(lib, open_devs[2], z_cur_position + z_offset)
 
                     except ValueError:
-                        response = 'BAD: Invalid offset'
+                        response_z = 'BAD: Invalid offset'
 
                 else:
                     response = 'BAD: Invalid offset'            
@@ -349,37 +356,45 @@ def handle_command(log, writer, data):
                     try:
                         # set r axis speed
                         r_set_speed = float(axis[2:]) / R_CONST
-                        response = set_speed(lib, open_devs[0], r_set_speed)
+                        response_r = set_speed(lib, open_devs[0], r_set_speed)
 
                     except ValueError:
-                        response = 'BAD: Invalid speed'
+                        response_r = 'BAD: Invalid speed'
 
                 elif axis[:2] == 't=':
                     try:
                         # set theta axis speed
                         t_set_speed = float(axis[2:]) / T_CONST
-                        response = set_speed(lib, open_devs[1], t_set_speed)
+                        response_t = set_speed(lib, open_devs[1], t_set_speed)
                         
                     except ValueError:
-                        response = 'BAD: Invalid speed'
+                        response_t = 'BAD: Invalid speed'
 
                 elif axis[:2] == 'z=':
                     try:
                         # set z axis speed
                         z_set_speed = float(axis[2:]) / Z_CONST
-                        response = set_speed(lib, open_devs[2], z_set_speed)
+                        response_z = set_speed(lib, open_devs[2], z_set_speed)
 
                     except ValueError:
-                        response = 'BAD: Invalid speed'
+                        response_z = 'BAD: Invalid speed'
 
                 else:
                     response = 'BAD: Invalid set speed command' 
         else:
             response = 'BAD: Invalid Command'
 
+        response = response_r + response_t + response_z
+        if 'BAD' in response:
+            response = 'BAD'
+        else:
+            response = 'OK'
+
     except IndexError:
         response = 'BAD: Invalid Command'
     
+    log.info('RESPONSE: '+response)
+    writer.write((response+'\n-------------------------------------------------------\n').encode('utf-8'))
     # wait for all activity to cease. handle_command() is called as a new thread
     # so this will not cause blocking 
     time.sleep(1.5)
@@ -390,9 +405,7 @@ def handle_command(log, writer, data):
         time.sleep(0.1)
 
     # tell the client the result of their command & log it
-    log.info('RESPONSE: '+response)
-    writer.write((response+'\n---\n').encode('utf-8'))
-    #writer.write(('---------------------------------------------------\n').encode('utf-8'))
+    log.info('RESPONSE: DONE')
 
 # async client handler, for multiple connections
 async def handle_client(reader, writer):
@@ -423,7 +436,7 @@ async def handle_client(reader, writer):
 
             # send current status to open connection & log it
             log.info('RESPONSE: '+response)
-            writer.write((response+'\n').encode('utf-8'))
+            writer.write((response+'\n-------------------------------------------------------\n').encode('utf-8'))
             
         elif 'stop' in dataDec.lower():
             busyState = 'IDLE'
@@ -436,6 +449,7 @@ async def handle_client(reader, writer):
                     stopList.append(each)
 
             if len(stopList) != 0:
+                response = ''
                 for each in stopList:
                     response = response + soft_stop(lib, each)
 
@@ -445,16 +459,17 @@ async def handle_client(reader, writer):
                     response = 'OK: Move Aborted'
 
             else:
-                response = 'BAD: All stages IDLE'
+                response = 'OK: All stages IDLE'
 
             # send current status to open connection & log it
             log.info('RESPONSE: '+response)
-        
+            writer.write((response+'\n-------------------------------------------------------\n').encode('utf-8'))
+
         else:
             # handler for all other commands besides status & stop
             comThread = threading.Thread(target=handle_command, args=(log, writer, dataDec,))
             comThread.start()
-        writer.write(('---------------------------------------------------DONE\n').encode('utf-8'))                          
+
         await writer.drain()
     writer.close()
 

@@ -28,6 +28,20 @@ GAIN = 0.27 # e-/ADU
 READ_NOISE = 3.5 # e-
 ######################################################
 
+########### Encoder<->mm/deg/mm Conversion ###########
+R_CONST = 0.00125
+T_CONST = float(25.9/3600)
+Z_CONST = 0.0000625
+######################################################
+
+
+# Stop the running hardware and close the program
+def cancel():
+	print("Cancelling routine, stopping all hardware")
+	send_data_tcp(9999, 'stop')
+	send_data_tcp(9997, 'stop')
+	print('Done')
+
 # Coordinate file read-in
 # input: name of the coordinate file
 # output: list of r,t,z coordinates
@@ -105,13 +119,15 @@ def expose(expType, expTime):
 		data = 'expose '+expType+' '+expTime
 
 	rData = send_data_tcp(9999, data)
-	try:
-		fileName = rData[rData.find('raw-'):rData.find('fits')+4]
-		print("filename is: "+fileName)
-		return fileName, rData
-	except:
-		print("no filename...")
+	
+	if 'BAD' in rData:
 		return 'NULL', rData
+	else:
+		try:
+			fileName = rData[rData.find('raw-'):rData.find('fits')+4]
+			return fileName, rData
+		except:
+			return 'NULL', rData
 
 # Change the filter in the filter wheel
 # input: slot number
@@ -133,10 +149,27 @@ def check_all_status():
 	rData = send_data_tcp(9999, 'status')
 	rData = rData + send_data_tcp(9998, 'status')
 	rData = rData + send_data_tcp(9997, 'status')
+	#print(rData)
 	if 'BUSY' in rData:
 		return 'BUSY'
 	else:
 		return 'IDLE'
+
+# get the position from the encoder counts for all motors
+def get_position_enc():
+	rData = send_data_tcp(9997, 'status')
+
+	# extract the encoder coders
+	r_pos = rData[rData.find('r_e: ')+5:rData.find('\n\u03B8_e')]
+	t_pos = rData[rData.find('\u03B8_e: ')+5:rData.find('\nz_e')]
+	z_pos = rData[rData.find('z_e: ')+5:rData.find('\nSpeeds')]
+
+	# convert to mm/deg/mm
+	r_pos = float(r_pos)*R_CONST
+	t_pos = float(t_pos)*T_CONST
+	z_pos = float(z_pos)*Z_CONST
+
+	return [r_pos, t_pos, z_pos]
 
 # PyGuide Star Checking
 # input: processed image array
@@ -162,18 +195,22 @@ def data_reduction(fileName):
 	try:
 		fitsFile = fits.open(FILE_DIR+fileName)
 		data = fitsFile[0].data
+		hdr = fitsFile[0].header
 
 		# process the data here
 
-		prc_image = data
-		exp_check = pyguide_checking(prc_image)
+		prc_data = data
+		exp_check = pyguide_checking(prc_data)
 		
 		if exp_check:
 			# save the processed image as a new FITS file
-			prc_fileName = ''
+			# with the processed data and the same header
+			prc_fileName = 'prc'+fileName[3:]
+			fits.writeto(FILE_DIR+prc_fileName, prc_data, hdr)
 
+		fitsFile.close()
 		return exp_check, prc_fileName
-		
+	
 	except:
 		return False, ''
 
@@ -188,6 +225,7 @@ def single_image(r_pos, t_pos, z_pos, filt_slot, expType, expTime):
 
 	stage_command(moveCom)
 	change_filter(filt_slot)
+	time.sleep(0.1)
 
 	# BLOCKING: wait until all hardware is idle before starting exposure routine
 	while check_all_status() == 'BUSY':
@@ -195,16 +233,23 @@ def single_image(r_pos, t_pos, z_pos, filt_slot, expType, expTime):
 
 	exp_check = False
 	while not exp_check:
-		# BLOCKING: Nothing should be happening while an exposure occurs	
+		# BLOCKING: Nothing should be happening while an exposure occurs
+		print('STARTING EXPOSURE...')	
 		fileName, rData = expose(expType, expTime)
+		print('...DONE EXPOSURE')
 
-		# update the fits header with the current position
-		resp = edit_fits(fileName, [['R_POS', r_pos], ['T_POS', t_pos], ['Z_POS', z_pos]])
+		if 'BAD' in rData:
+			exp_check = True
+		else:
+			# get the encoder counts to obtain precise location
+			enc_positions = get_position_enc()
 
-		# perform data reduction, search for stars, determine if exposure change is necessary
-		exp_check, prc_fileName = data_reduction(fileName)
+			# update the fits header with the current position
+			resp = edit_fits(fileName, [['R_POS', enc_positions[0]], ['T_POS', enc_positions[1]], ['Z_POS', enc_positions[2]]])
 
-
+			# perform data reduction, search for stars, determine if exposure change is necessary
+			exp_check, prc_fileName = data_reduction(fileName)
+			exp_check = True
 
 # Focus Step & Camera Exposure
 # input: current x/y coordinates
@@ -254,9 +299,8 @@ def step_thru_focus(curCoords):
 # Traverse the focal plane positions
 # input: polar coordinates list
 # ouput: 
-def go_to_fp_coords(polar_coords):
+def go_to_fp_coords(polar_coords, filt_slot, expType):
 	for pos in polar_coords:
-		moveCom = 'move r='+pos[0]+' t='+pos[1]+' z='+pos[2]
 
 		# BLOCKING: wait until all hardware is idle before moving to next position
 		# !!! FOR SINGLE TARGET CHASING: CHECK TELESCOPE MOVES HERE
@@ -265,7 +309,7 @@ def go_to_fp_coords(polar_coords):
 		
 		# move to next focal plane position
 		# !!! FOR SINGLE TARGET CHASING: SEND TELESCOPE MOVE COMMAND HERE
-		stage_command(moveCom)
+		single_image(pos[0], pos[1], pos[2], filt_slot, expType, pos[3])
 
 		# BLOCKING: wait until all hardware is idle before beginning focus sweep
 		while check_all_status() == 'BUSY':
@@ -282,7 +326,7 @@ def send_data_tcp(port, data):
 	s.connect((socket.gethostname(), port))
 	s.sendall(bytes(data + '\n','utf-8'))
 	rData = ''
-	while 'OK' not in rData:
+	while 'OK' not in rData and 'BAD' not in rData:
 		rData = rData + str(s.recv(1024), 'utf-8')
 	s.close()
 	return rData
@@ -305,33 +349,39 @@ if __name__ == "__main__":
  	   		ccdGain = GAIN,  # inverse ccd gain, in e-/ADU
 			)
 
+		methodLoop = True
+		
 		userDir = input("Specify image directory or DEF for default: ")
 
-		if 'DEF' in userDir.upper():
+		if 'DEF' in userDir.upper() or '' == userDir:
 			pass
 		elif os.path.isdir(userDir):
 			FILE_DIR = userDir
 			send_data_tcp(9999, 'set fileDir='+FILE_DIR)
 		else:
+			methodLoop = False
 			print("BAD: Invalid directory. Please create directory and try again.")
 
 		# open image_display.py as a subprocess
 		p = display_images(FILE_DIR)
 
 		# Select the measurement method to use
-		methodLoop = True
 		while methodLoop:
 			method = input("Specify measurement method\n(0) Single Image\n(1) Passive Scanning\n(2) Single Target Chasing\n(3) Multi-Target\n..: ")
 
 			if '0' in method:
 				singleImageLoop = True
 				while singleImageLoop:
-					r_pos = input("Enter r position (mm): ")
-					t_pos = input("Enter t position (deg): ")
-					z_pos = input("Enter z position (mm): ")
-					filt_slot = input("Enter filter slot (1-5): ")
-					expType = input("Enter exposure type (light/dark/bias/flat): ")
-					expTime = input("Enter exposure time (s): ")
+					r_pos = input("r position (mm): ")
+					t_pos = input("t position (deg): ")
+					z_pos = input("z position (mm): ")
+					filt_slot = input("filter slot (1-5): ")
+					expType = input("exposure type (light/dark/bias/flat): ")
+					
+					if expType.lower() == 'bias':
+						expTime = 0
+					else:
+						expTime = input("Enter exposure time (s): ")
 
 					single_image(r_pos, t_pos, z_pos, filt_slot, expType, expTime)
 
@@ -339,17 +389,28 @@ if __name__ == "__main__":
 
 					if 'Q' in tdata.upper():
 						singleImageLoop = False
+						methodLoop = False
 
 			elif '1' in method or '2' in method or '3' in method:
 				
 				userCoords = input("Specify coordinates CSV file or DEF for default: ")
 
-				if 'DEF' in userCoords.upper():
+				if 'DEF' in userCoords.upper() or '' == userCoords:
+					print('derp')
 					pass
 				elif os.path.isfile(userCoords):
 					COORD_FILE = userCoords
 				else:
 					print("BAD: Invalid coordinates CSV file. Please create file and try again.")
+					continue
+
+				filt_slot = input("filter slot (1-5): ")
+				expType = input("exposure type (light/dark/bias/flat): ")
+				
+				if expType.lower() == 'bias':
+					expTime = 0
+				else:
+					expTime = input("Enter exposure time (s): ")
 
 				# get focal plane coordinates
 				fp_coords = get_coordinates(COORD_FILE)
@@ -360,7 +421,7 @@ if __name__ == "__main__":
 
 				if '1' in method:
 					methodLoop = False
-					go_to_fp_coords(polar_coords)
+					go_to_fp_coords(polar_coords, filt_slot, expType)
 					
 				elif '2' in method:
 					print("Not yet implemented")
@@ -371,7 +432,7 @@ if __name__ == "__main__":
 
 					multiTargetLoop = True
 					while multiTargetLoop:
-						go_to_fp_coords(polar_coords)
+						go_to_fp_coords(polar_coords, filt_slot, expType)
 						tdata = input("Clock rotator and run again (y) or quit (n): ")
 						if 'n' in tdata.lower():
 							multiTargetLoop = False
@@ -382,9 +443,9 @@ if __name__ == "__main__":
 				
 			else:
 				print("BAD: Select 1, 2, or 3")
+		
+		cancel()
+
 	except KeyboardInterrupt:
-		print("Cancelling routine, stopping all hardware")
-		send_data_tcp(9999, 'stop')
-		send_data_tcp(9997, 'stop')
-		print('Done')
+		cancel()
 

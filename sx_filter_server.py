@@ -105,41 +105,53 @@ def connect_to_wheel():
 
     return filter_slot, filter_name
 
+# get the wheel moving state
+# return a bool whether moving or not
+def slotState():
+    if filter_slot[0].value == cSLOT:
+        return False
+    else:
+        return True
+
 # change the filter wheel's parameters based on what the client provides
 def setParams(commandList):
-	response = ''
-	
-	for i in commandList:
-		# set the filter slot
-		if 'slot=' in i:
-			try:
-				slot = int(i.replace('slot=',''))
-				if slot >= 1 and slot <= 5:
-					filter_slot[0].value = slot
-					indiclient.sendNewNumber(filter_slot)
-					response = 'OK: Filter Slot set to '+str(slot)
-				else:
-					response = 'BAD: Invalid Filter Slot'
-			except ValueError:
-				response = 'BAD: Invalid Filter Slot'
-                
-		# set the slot name
-		elif 'slotName=' in i:
-			try:
-				slotName = str(i.replace('slotName=',''))
-				if len(slotName) <= 50:
-					response = 'OK: Setting current filter name to '+slotName
-					filter_name[int(filter_slot[0].value)-1].text = slotName
-					indiclient.sendNewText(filter_name)
-				else:
-					response = 'BAD: Invalid filter name'
-			except ValueError:
-				response = 'BAD: Invalid filter name'
-                
-		else:
-			response = 'BAD: Invalid Set'+'\n'+response
+    
+    response = ''
+    global cSLOT
 
-	return response
+    for i in commandList:
+        # set the filter slot
+        if 'slot=' in i:
+            try:
+                slot = int(i.replace('slot=',''))
+                if slot >= 1 and slot <= 5:
+                    filter_slot[0].value = slot
+                    cSLOT = slot
+
+                    indiclient.sendNewNumber(filter_slot)
+                    response = 'OK: Filter Slot set to '+str(slot)
+                else:
+                    response = 'BAD: Invalid Filter Slot'
+            except ValueError:
+                response = 'BAD: Invalid Filter Slot'
+                
+        # set the slot name
+        elif 'slotName=' in i:
+            try:
+                slotName = str(i.replace('slotName=',''))
+                if len(slotName) <= 50:
+                    response = 'OK: Setting current filter name to '+slotName
+                    filter_name[int(filter_slot[0].value)-1].text = slotName
+                    indiclient.sendNewText(filter_name)
+                else:
+                    response = 'BAD: Invalid filter name'
+            except ValueError:
+                response = 'BAD: Invalid filter name'
+
+        else:
+            response = 'BAD: Invalid Set'+'\n'+response
+
+    return response
 
 # command handler, to parse the client's data more precisely
 def handle_command(log, writer, data): 
@@ -156,8 +168,7 @@ def handle_command(log, writer, data):
         
     # tell the client the result of their command & log it
     log.info('RESPONSE: '+response)
-    writer.write((response+'\n').encode('utf-8'))
-    writer.write(('---------------------------------------------------\n').encode('utf-8'))                          
+    writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
 
 # async client handler, for multiple connections
 async def handle_client(reader, writer):
@@ -177,13 +188,9 @@ async def handle_client(reader, writer):
             break
         elif 'status' in dataDec.lower():
             response = 'OK'
-            # check if the command thread is running
-            try:
-                if comThread.is_alive():
-                    response = response + '\nBUSY'
-                else:
-                    response = response + '\nIDLE'
-            except:
+            if slotState():
+                response = response + '\nBUSY'
+            else:
                 response = response + '\nIDLE'
 
             response = response+\
@@ -192,12 +199,12 @@ async def handle_client(reader, writer):
 
             # send current status to open connection & log it
             log.info('RESPONSE: '+response)
-            writer.write((response+'\n').encode('utf-8'))
+            writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
         else:
             # check if the command thread is running, may fail if not created yet, hence try/except
             try:
-                if comThread.is_alive():
-                    response = 'BAD: busy'
+                if slotState():
+                    response = 'BAD: BUSY'
                     # send current status to open connection & log it
                     log.info('RESPONSE: '+response)
                     writer.write((response+'\n').encode('utf-8'))
@@ -210,7 +217,6 @@ async def handle_client(reader, writer):
                 comThread = threading.Thread(target=handle_command, args=(log, writer, dataDec,))
                 comThread.start()
 
-        writer.write(('---------------------------------------------------DONE\n').encode('utf-8'))                          
         await writer.drain()
     writer.close()
 
@@ -229,6 +235,10 @@ if __name__ == "__main__":
     
     # setup Remote TCP Server
     HOST, PORT = '', 9998
+
+    cSLOT = 1 # GLOBAL VAR for keeping track of COMMANDED slot, for checking busy/idle state
+    filter_slot[0].value = 1 # Initialize the filter wheel to slot 1 on startup
+    indiclient.sendNewNumber(filter_slot)
 
     try:
         asyncio.run(main(HOST,PORT))

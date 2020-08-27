@@ -376,8 +376,7 @@ def handle_command(log, writer, data):
         
     # tell the client the result of their command & log it
     log.info('RESPONSE: '+response)
-    writer.write((response+'\n').encode('utf-8'))
-    writer.write(('-------------------------------------------EXP-DONE\n').encode('utf-8'))                          
+    writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
 
 # async client handler, for multiple connections
 async def handle_client(reader, writer):
@@ -424,7 +423,7 @@ async def handle_client(reader, writer):
 
             # send current status to open connection & log it
             log.info('RESPONSE: '+response)
-            writer.write((response+'\n').encode('utf-8'))
+            writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
             
         elif 'stop' in dataDec.lower():
             # check if the command thread is running
@@ -442,7 +441,7 @@ async def handle_client(reader, writer):
 
             # send current status to open connection & log it
             log.info('RESPONSE: '+response)
-            writer.write((response+'\n').encode('utf-8'))
+            writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
 	    
         else:
             # check if the command thread is running, may fail if not created yet, hence try/except
@@ -461,7 +460,6 @@ async def handle_client(reader, writer):
                 comThread = threading.Thread(target=handle_command, args=(log, writer, dataDec,))
                 comThread.start()
 
-        writer.write(('-----------------------------------------------DONE\n').encode('utf-8'))                          
         await writer.drain()
     writer.close()
 
@@ -492,6 +490,9 @@ if __name__ == "__main__":
     # create a thread event for blobs
     blobEvent=threading.Event()
     
+    ccd_exposure[0].value = 0.0001
+    indiclient.sendNewNumber(ccd_exposure)
+
     # setup Remote TCP Server
     HOST, PORT = '', 9999
 

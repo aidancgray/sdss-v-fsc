@@ -20,7 +20,7 @@ def log_start():
     scriptDir = os.path.dirname(os.path.abspath(__file__))
     scriptName = os.path.splitext(os.path.basename(__file__))[0]
     log = logging.getLogger('file-watch')
-    hdlr = logging.FileHandler(scriptDir+'/'+scriptName+'.log')
+    hdlr = logging.FileHandler(scriptDir+'/logs/'+scriptName+'.log')
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
     hdlr.setFormatter(formatter)
     log.addHandler(hdlr)
