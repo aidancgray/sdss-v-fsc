@@ -50,7 +50,7 @@ def get_coordinates(fileName):
 	print("Reading coordinates file...")
 
 	with open(fileName, 'rt', encoding='utf-8-sig') as csvfile:
-	    data = [(float(r), float(t), float(z)) for r, t, z in csv.reader(csvfile, delimiter= ',')]
+	    data = [(float(r), float(t), float(z), float(expTime), str(filt_slot)) for r, t, z, expTime, filt_slot in csv.reader(csvfile, delimiter= ',')]
 
 	return data
 
@@ -64,7 +64,9 @@ def cart2polar(fp_coords):
 		x = tCoords[0]
 		y = tCoords[1]
 		z = tCoords[2]
-		
+		expTime = tCoords[3]
+		filt_slot = tCoords[4]
+
 		r = np.sqrt(x**2+y**2)
 		
 		# change this around depending on orientation on -scope
@@ -75,7 +77,7 @@ def cart2polar(fp_coords):
 		else:
 			t = np.arctan2(y,x)
 
-		polar_coords.append([r,t,z])
+		polar_coords.append([r,t,z,expTime,filt_slot])
 
 	return polar_coords
 
@@ -114,9 +116,9 @@ def display_images(fileDir):
 # output: image fileName, rData
 def expose(expType, expTime):
 	if expType.lower() == 'bias':
-		data = 'expose '+expType
+		data = 'expose '+str(expType)
 	else:
-		data = 'expose '+expType+' '+expTime
+		data = 'expose '+str(expType)+' '+str(expTime)
 
 	rData = send_data_tcp(9999, data)
 	
@@ -153,6 +155,7 @@ def check_all_status():
 	if 'BUSY' in rData:
 		return 'BUSY'
 	else:
+		#print(rData)
 		return 'IDLE'
 
 # get the position from the encoder counts for all motors
@@ -216,20 +219,26 @@ def data_reduction(fileName):
 
 # Single Image Script
 # input: r position, theta position, z position, filter slot #, exposure type, exposure time
-def single_image(r_pos, t_pos, z_pos, filt_slot, expType, expTime):
-	moveCom = 'move r='+r_pos+' t='+t_pos+' z='+z_pos
+def single_image(coords, expType):
+	r_pos = coords[0]
+	t_pos = coords[1]
+	z_pos = coords[2]
+	expTime = coords[3]
+	filt_slot = coords[4]
+
+	moveCom = 'move r='+str(r_pos)+' t='+str(t_pos)+' z='+str(z_pos)
 
 	# BLOCKING: wait until all hardware is idle before moving to next position
 	while check_all_status() == 'BUSY':
-		time.sleep(0.01)	
+		time.sleep(0.1)	
 
-	stage_command(moveCom)
 	change_filter(filt_slot)
-	time.sleep(0.1)
+	stage_command(moveCom)
+	time.sleep(1)
 
 	# BLOCKING: wait until all hardware is idle before starting exposure routine
 	while check_all_status() == 'BUSY':
-		time.sleep(0.01)	
+		time.sleep(0.1)	
 
 	exp_check = False
 	while not exp_check:
@@ -262,17 +271,17 @@ def step_thru_focus(curCoords):
 		# BLOCKING: wait until all hardware is idle before beginning focus sweep
 		# !!! CHECK TELESCOPE MOVES HERE FOR CHASING SINGLE TARGET
 		while check_all_status() == 'BUSY':
-			time.sleep(0.01)	
+			time.sleep(0.1)	
 		
 		# move to next focus position
 		stage_command(moveCom)
 
 		# BLOCKING: wait until all hardware is idle before beginning exposure
 		while check_all_status() == 'BUSY':
-			time.sleep(0.01)
+			time.sleep(0.1)
 
 		# BLOCKING: Nothing should be happening while an exposure occurs	
-		fileName, rData = expose(EXP_TYPE, EXP_TIME)
+		#fileName, rData = expose(EXP_TYPE, EXP_TIME)
 
 	# return to the first focus position
 	stage_command('move z='+curCoords[2])
@@ -284,39 +293,39 @@ def step_thru_focus(curCoords):
 		# BLOCKING: wait until all hardware is idle before beginning focus sweep
 		# !!! CHECK TELESCOPE MOVES HERE FOR CHASING SINGLE TARGET
 		while check_all_status() == 'BUSY':
-			time.sleep(0.01)	
+			time.sleep(0.1)	
 		
 		# move to next focus position
 		stage_command(moveCom)
 		
 		# BLOCKING: wait until all hardware is idle before beginning exposure
 		while check_all_status() == 'BUSY':
-			time.sleep(0.01)
+			time.sleep(0.1)
 
 		# BLOCKING: Nothing should be happening while an exposure occurs	
-		fileName, rData = expose(EXP_TYPE, EXP_TIME)
+		#fileName, rData = expose(EXP_TYPE, EXP_TIME)
 
 # Traverse the focal plane positions
 # input: polar coordinates list
 # ouput: 
-def go_to_fp_coords(polar_coords, filt_slot, expType):
+def go_to_fp_coords(polar_coords, expType):
 	for pos in polar_coords:
 
 		# BLOCKING: wait until all hardware is idle before moving to next position
 		# !!! FOR SINGLE TARGET CHASING: CHECK TELESCOPE MOVES HERE
 		while check_all_status() == 'BUSY':
-			time.sleep(0.01)	
+			time.sleep(0.1)	
 		
 		# move to next focal plane position
 		# !!! FOR SINGLE TARGET CHASING: SEND TELESCOPE MOVE COMMAND HERE
-		single_image(pos[0], pos[1], pos[2], filt_slot, expType, pos[3])
+		single_image(pos, expType)
 
 		# BLOCKING: wait until all hardware is idle before beginning focus sweep
 		while check_all_status() == 'BUSY':
-			time.sleep(0.01)
+			time.sleep(0.1)
 
 		# BLOCKING: Nothing should be happening while an exposure occurs	
-		step_thru_focus(pos)
+		#step_thru_focus(pos)
 
 # Send data over TCP to the desired port
 # input: port (cam: 9999, filters: 9999, stages:9997), data to send
@@ -338,8 +347,6 @@ if __name__ == "__main__":
 
 		# Defaults. This can be changed, or specified at script startup
 		FOCUS_SWEEP = [5, 5] # [# of offset, distance b/w offsets]
-		EXP_TYPE = 'object'
-		EXP_TIME = '1'
 		FILE_DIR = os.path.expanduser('~')+'/Pictures/'
 		COORD_FILE = 'test_coords.csv'
 
@@ -357,11 +364,12 @@ if __name__ == "__main__":
 			pass
 		elif os.path.isdir(userDir):
 			FILE_DIR = userDir
-			send_data_tcp(9999, 'set fileDir='+FILE_DIR)
 		else:
 			methodLoop = False
 			print("BAD: Invalid directory. Please create directory and try again.")
 
+		# set the camera's image directory
+		send_data_tcp(9999, 'set fileDir='+FILE_DIR)
 		# open image_display.py as a subprocess
 		p = display_images(FILE_DIR)
 
@@ -383,7 +391,7 @@ if __name__ == "__main__":
 					else:
 						expTime = input("Enter exposure time (s): ")
 
-					single_image(r_pos, t_pos, z_pos, filt_slot, expType, expTime)
+					single_image([r_pos, t_pos, z_pos, expTime, filt_slot], expType)
 
 					tdata = input("Again (enter key) or quit (q)? ")
 
@@ -396,7 +404,6 @@ if __name__ == "__main__":
 				userCoords = input("Specify coordinates CSV file or DEF for default: ")
 
 				if 'DEF' in userCoords.upper() or '' == userCoords:
-					print('derp')
 					pass
 				elif os.path.isfile(userCoords):
 					COORD_FILE = userCoords
@@ -404,13 +411,7 @@ if __name__ == "__main__":
 					print("BAD: Invalid coordinates CSV file. Please create file and try again.")
 					continue
 
-				filt_slot = input("filter slot (1-5): ")
 				expType = input("exposure type (light/dark/bias/flat): ")
-				
-				if expType.lower() == 'bias':
-					expTime = 0
-				else:
-					expTime = input("Enter exposure time (s): ")
 
 				# get focal plane coordinates
 				fp_coords = get_coordinates(COORD_FILE)
@@ -421,7 +422,7 @@ if __name__ == "__main__":
 
 				if '1' in method:
 					methodLoop = False
-					go_to_fp_coords(polar_coords, filt_slot, expType)
+					go_to_fp_coords(polar_coords, expType)
 					
 				elif '2' in method:
 					print("Not yet implemented")
@@ -432,7 +433,7 @@ if __name__ == "__main__":
 
 					multiTargetLoop = True
 					while multiTargetLoop:
-						go_to_fp_coords(polar_coords, filt_slot, expType)
+						go_to_fp_coords(polar_coords, expType)
 						tdata = input("Clock rotator and run again (y) or quit (n): ")
 						if 'n' in tdata.lower():
 							multiTargetLoop = False

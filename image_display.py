@@ -37,8 +37,8 @@ if __name__ == "__main__":
     log = log_start()
     d = pyds9.DS9()
 
-    patterns = "*.fits"
-    ignore_patterns = ""
+    patterns = [path+"raw-*"]
+    ignore_patterns = [path+"prc-*"]
     ignore_directories = True
     case_sensitive = True
 
