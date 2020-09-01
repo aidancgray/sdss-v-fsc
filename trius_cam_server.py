@@ -48,10 +48,10 @@ class IndiClient(PyIndi.BaseClient):
 
 def log_start():
     """
-	Create a logfile that the rest of the script can write to.
+    Create a logfile that the rest of the script can write to.
 
-	Output:
-	- log 	Object used to access write abilities
+    Output:
+    - log 	Object used to access write abilities
     """
 
     scriptDir = os.path.dirname(os.path.abspath(__file__))
@@ -65,17 +65,17 @@ def log_start():
     return log
     
 def connect_to_indi():
-	"""
-	Establish a TCP connection to the indiserver via port 7624
+    """
+    Establish a TCP connection to the indiserver via port 7624
 
-	Output:
-	- indiclient 	Object used to connect to the device properties
-	"""
-
+    Output:
+    - indiclient 	Object used to connect to the device properties
+    """
+    
     indiclient=IndiClient()
     indiclient.setServer("localhost",7624)
 
-	# Ensure the indiserver is running     
+    # Ensure the indiserver is running     
     if (not(indiclient.connectServer())):
          print("No indiserver running on "+indiclient.getHost()+":"+str(indiclient.getPort())+" - Try to run")
          print("  indiserver indi_sx_ccd")
@@ -84,31 +84,31 @@ def connect_to_indi():
     return indiclient
 
 def connect_to_ccd():
-	"""
-	Connection routine for the CCD (given below in ccd variable).
-	The following CCD properties are accessed. More can be found
-	by going to indilib.org.
-	- CONNECTION 			Switch
-	- CCD_EXPOSURE 			Number
-	- CCD1 					BLOB
-	- CCD_BINNING			Number
-	- CCD_ABORT_EXPOSURE	Number
-	- CCD_TEMPERATURE 		Number
-	- CCD_COOLER 			Switch
-	- CCD_FRAME_TYPE 		Switch
+    """
+    Connection routine for the CCD (given below in ccd variable).
+    The following CCD properties are accessed. More can be found
+    by going to indilib.org.
+    - CONNECTION 			Switch
+    - CCD_EXPOSURE 			Number
+    - CCD1 					BLOB
+    - CCD_BINNING			Number
+    - CCD_ABORT_EXPOSURE	Number
+    - CCD_TEMPERATURE 		Number
+    - CCD_COOLER 			Switch
+    - CCD_FRAME_TYPE 		Switch
 
-	Inputs:
-	- NONE
+    Inputs:
+    - NONE
 
-	Outputs:
-	- ccd_exposure 	
-	- ccd_ccd1 		
-	- ccd_bin 		
-	- ccd_abort  	
-	- ccd_temp 		
-	- ccd_cooler 	
-	- ccd_frame 	
-	"""
+    Outputs:
+    - ccd_exposure 	
+    - ccd_ccd1 		
+    - ccd_bin 		
+    - ccd_abort  	
+    - ccd_temp 		
+    - ccd_cooler 	
+    - ccd_frame 	
+    """
 
     ccd="SX CCD SXVR-H694"
     device_ccd=indiclient.getDevice(ccd)
@@ -174,16 +174,16 @@ def connect_to_ccd():
     return ccd_exposure, ccd_ccd1, ccd_bin, ccd_abort, ccd_temp, ccd_cooler, ccd_frame
 
 def last_image(fileDir):
-	"""
-	Find the last numbered image in the current directory.
+    """
+    Find the last numbered image in the current directory.
 
-	Inputs:
-	- filedir 	the full path of the image directory to search
+    Inputs:
+    - filedir 	the full path of the image directory to search
 
-	Outputs:
-	- lastNum	the number (int) of the last image
-	- lastImg 	the full name of the last image
-	"""
+    Outputs:
+    - lastNum	the number (int) of the last image
+    - lastImg 	the full name of the last image
+    """
 
     lastNum = 0
     lastImg = ''
@@ -205,17 +205,17 @@ def last_image(fileDir):
 
 def exposure(frameType, expTime):
     """
-	Sends an exposure command to the CCD given the type of frame
-	and exposure time. The received BLOB is of FITS type and is 
-	written to the currently set directory with name: raw-########.fits.
-	The ######## is a padded integer that iterates by 1 after every exposure.
+    Sends an exposure command to the CCD given the type of frame
+    and exposure time. The received BLOB is of FITS type and is 
+    written to the currently set directory with name: raw-########.fits.
+    The ######## is a padded integer that iterates by 1 after every exposure.
 
-	Inputs:
-	- frameType light/bias/dark/flat
-	- expTime 	exposure time in seconds	
+    Inputs:
+    - frameType light/bias/dark/flat
+    - expTime 	exposure time in seconds	
 
-	Output:
-	- fileName 	The name of the fits image
+    Output:
+    - fileName 	The name of the fits image
     """
 
     blobEvent.clear()    
@@ -272,11 +272,11 @@ def exposure(frameType, expTime):
     return fileName
 
 def exposureState():
-	"""
-	Output:
-	- Returns the exposure state of the CCD. This is how much 
-	  time is left in the exposure. 0 if idle, >0 if exposing.
-	"""
+    """
+    Output:
+    - Returns the exposure state of the CCD. This is how much 
+      time is left in the exposure. 0 if idle, >0 if exposing.
+    """
     return int(ccd_exposure[0].value)
 
 # change the CCD's parameters based on what the client provides
@@ -333,7 +333,6 @@ def setParams(commandList):
                 global imgNum
                 global imgName
                 global fileDir
-                global p
                 tempFileDir = i.replace('fileDir=','')
                 
                 if tempFileDir[len(tempFileDir)-1] != '/':
@@ -496,7 +495,7 @@ async def handle_client(reader, writer):
             # send current status to open connection & log it
             log.info('RESPONSE: '+response)
             writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
-	    
+        
         else:
             # check if the command thread is running, may fail if not created yet, hence try/except
             try:
@@ -530,8 +529,6 @@ if __name__ == "__main__":
 
     imgNum, imgName = last_image(fileDir)
     log = log_start()
-
-    #p = subprocess.Popen([sys.executable, 'image_display.py', fileDir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     
     # connect to the local indiserver
     indiclient = connect_to_indi()
