@@ -272,14 +272,14 @@ def step_thru_focus(coords, expType, focusOffset, focusNum):
 	filt_slot = coords[4]
 
 	# positive offsets
-	for n in range(1,focusOffset+1):
+	for n in range(1,int(focusNum)+1):
 		z_off_pos = float(z_pos) + (float(focusOffset) * float(n))
-		single_image([r_pos, t_pos, z_off_pos], expType)
+		single_image([r_pos, t_pos, z_off_pos, expTime, filt_slot], expType)
 
 	# negative offsets
-	for n in range(1,focusOffset+1):
+	for n in range(1,int(focusNum)+1):
 		z_off_pos = float(z_pos) - (float(focusOffset) * float(n))
-		single_image([r_pos, t_pos, z_off_pos], expType)		
+		single_image([r_pos, t_pos, z_off_pos, expTime, filt_slot], expType)		
 
 # Traverse the focal plane positions
 # input: polar coordinates list (also containing exposure value & filter slot), exposure type, 
