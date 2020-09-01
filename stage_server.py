@@ -8,6 +8,7 @@
 
 from astropy.io import fits
 from ctypes import *
+import numpy as np
 import asyncio
 import logging
 import os
@@ -57,8 +58,10 @@ def get_move_status(lib, device_id):
 
     result = lib.get_status(device_id, byref(device_status))
     if result == Result.Ok:
-        move_state = device_status.MoveSts
-        if move_state != 0:
+        #move_state = device_status.MoveSts # documentation says not to use this...
+        move_com_state = device_status.MvCmdSts
+        #print(repr(hex(move_com_state)))
+        if move_com_state == 129:
             return 'BUSY'
         else:
             return 'IDLE'
