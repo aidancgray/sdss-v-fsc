@@ -9,6 +9,7 @@
 
 from astropy.io import fits
 from ctypes import *
+from datetime import datetime
 import socket
 import logging
 import os
@@ -234,7 +235,6 @@ def single_image(coords, expType):
 
 	change_filter(filt_slot)
 	stage_command(moveCom)
-	time.sleep(1)
 
 	# BLOCKING: wait until all hardware is idle before starting exposure routine
 	while check_all_status() == 'BUSY':
@@ -245,7 +245,7 @@ def single_image(coords, expType):
 		# BLOCKING: Nothing should be happening while an exposure occurs
 		print('STARTING EXPOSURE...')	
 		fileName, rData = expose(expType, expTime)
-		print('...DONE EXPOSURE')
+		print('...DONE EXPOSURE: '+fileName)
 
 		if 'BAD' in rData:
 			exp_check = True
@@ -261,54 +261,31 @@ def single_image(coords, expType):
 			exp_check = True
 
 # Focus Step & Camera Exposure
-# input: current x/y coordinates
-# output: 
-def step_thru_focus(curCoords):
+# input: polar coordinates list (also containing exposure value & filter slot), exposure type, 
+#        focus offset (mm), and number of offsets IN ONE DIRECTION (total offset exps is double)
+# ouput: ---
+def step_thru_focus(coords, expType, focusOffset, focusNum):
+	r_pos = coords[0]
+	t_pos = coords[1]
+	z_pos = coords[2]
+	expTime = coords[3]
+	filt_slot = coords[4]
+
 	# positive offsets
-	for z in range(0,FOCUS_SWEEP[0]+1):
-		moveCom = 'offset z='+str(z*FOCUS_SWEEP[1])
-		
-		# BLOCKING: wait until all hardware is idle before beginning focus sweep
-		# !!! CHECK TELESCOPE MOVES HERE FOR CHASING SINGLE TARGET
-		while check_all_status() == 'BUSY':
-			time.sleep(0.1)	
-		
-		# move to next focus position
-		stage_command(moveCom)
-
-		# BLOCKING: wait until all hardware is idle before beginning exposure
-		while check_all_status() == 'BUSY':
-			time.sleep(0.1)
-
-		# BLOCKING: Nothing should be happening while an exposure occurs	
-		#fileName, rData = expose(EXP_TYPE, EXP_TIME)
-
-	# return to the first focus position
-	stage_command('move z='+curCoords[2])
+	for n in range(1,focusOffset+1):
+		z_off_pos = float(z_pos) + (float(focusOffset) * float(n))
+		single_image([r_pos, t_pos, z_off_pos], expType)
 
 	# negative offsets
-	for z in range(1,FOCUS_SWEEP[0]+1):
-		moveCom = 'offset z=-'+str(z*FOCUS_SWEEP[1])
-		
-		# BLOCKING: wait until all hardware is idle before beginning focus sweep
-		# !!! CHECK TELESCOPE MOVES HERE FOR CHASING SINGLE TARGET
-		while check_all_status() == 'BUSY':
-			time.sleep(0.1)	
-		
-		# move to next focus position
-		stage_command(moveCom)
-		
-		# BLOCKING: wait until all hardware is idle before beginning exposure
-		while check_all_status() == 'BUSY':
-			time.sleep(0.1)
-
-		# BLOCKING: Nothing should be happening while an exposure occurs	
-		#fileName, rData = expose(EXP_TYPE, EXP_TIME)
+	for n in range(1,focusOffset+1):
+		z_off_pos = float(z_pos) - (float(focusOffset) * float(n))
+		single_image([r_pos, t_pos, z_off_pos], expType)		
 
 # Traverse the focal plane positions
-# input: polar coordinates list
-# ouput: 
-def go_to_fp_coords(polar_coords, expType):
+# input: polar coordinates list (also containing exposure value & filter slot), exposure type, 
+#        focus offset (mm), and number of offsets IN ONE DIRECTION (total offset exps is double)
+# ouput: ---
+def go_to_fp_coords(polar_coords, expType, focusOffset, focusNum):
 	for pos in polar_coords:
 
 		# BLOCKING: wait until all hardware is idle before moving to next position
@@ -323,9 +300,8 @@ def go_to_fp_coords(polar_coords, expType):
 		# BLOCKING: wait until all hardware is idle before beginning focus sweep
 		while check_all_status() == 'BUSY':
 			time.sleep(0.1)
-
-		# BLOCKING: Nothing should be happening while an exposure occurs	
-		#step_thru_focus(pos)
+	
+		step_thru_focus(pos, expType, focusOffset, focusNum)
 
 # Send data over TCP to the desired port
 # input: port (cam: 9999, filters: 9999, stages:9997), data to send
@@ -346,8 +322,7 @@ if __name__ == "__main__":
 		print("Starting FSC Control Script...")
 
 		# Defaults. This can be changed, or specified at script startup
-		FOCUS_SWEEP = [5, 5] # [# of offset, distance b/w offsets]
-		FILE_DIR = os.path.expanduser('~')+'/Pictures/'
+		FILE_DIR = os.path.expanduser('~')+'/Pictures/'+datetime.now().strftime("%m-%d-%Y")+'/'
 		COORD_FILE = 'test_coords.csv'
 
 		CCDInfo = PyGuide.CCDInfo(
@@ -361,15 +336,18 @@ if __name__ == "__main__":
 		userDir = input("Specify image directory or DEF for default: ")
 
 		if 'DEF' in userDir.upper() or '' == userDir:
-			pass
+			send_data_tcp(9999, 'set fileDir='+FILE_DIR)
 		elif os.path.isdir(userDir):
+			if userDir[len(userDir)-1] != '/':
+				userDir = userDir+'/'
 			FILE_DIR = userDir
 		else:
-			methodLoop = False
-			print("BAD: Invalid directory. Please create directory and try again.")
+			print("Directory does not exist. An attempt will be made to create it.")
+			if userDir[len(userDir)-1] != '/':
+				userDir = userDir+'/'
+			FILE_DIR = userDir
+			send_data_tcp(9999, 'set fileDir='+FILE_DIR)
 
-		# set the camera's image directory
-		send_data_tcp(9999, 'set fileDir='+FILE_DIR)
 		# open image_display.py as a subprocess
 		p = display_images(FILE_DIR)
 
@@ -413,6 +391,16 @@ if __name__ == "__main__":
 
 				expType = input("exposure type (light/dark/bias/flat): ")
 
+				focusOffset = input("Focus sweep offset (mm): ")
+				focusNum = input("Focus sweep #: ")
+
+				try:
+					float(focusOffset)
+					int(focusNum)
+				except ValueError:
+					print("BAD: Offset must be float and sweep # must be int")
+					continue
+
 				# get focal plane coordinates
 				fp_coords = get_coordinates(COORD_FILE)
 
@@ -422,7 +410,7 @@ if __name__ == "__main__":
 
 				if '1' in method:
 					methodLoop = False
-					go_to_fp_coords(polar_coords, expType)
+					go_to_fp_coords(polar_coords, expType, focusOffset, focusNum)
 					
 				elif '2' in method:
 					print("Not yet implemented")
@@ -433,7 +421,7 @@ if __name__ == "__main__":
 
 					multiTargetLoop = True
 					while multiTargetLoop:
-						go_to_fp_coords(polar_coords, expType)
+						go_to_fp_coords(polar_coords, expType, focusOffset, focusNum)
 						tdata = input("Clock rotator and run again (y) or quit (n): ")
 						if 'n' in tdata.lower():
 							multiTargetLoop = False

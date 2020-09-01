@@ -16,6 +16,7 @@ import logging
 import subprocess
 import numpy as np
 from astropy.io import fits
+from datetime import datetime
 
 class IndiClient(PyIndi.BaseClient):
     def __init__(self):
@@ -288,6 +289,13 @@ def setParams(commandList):
                 global fileDir
                 global p
                 tempFileDir = i.replace('fileDir=','')
+                
+                if tempFileDir[len(tempFileDir)-1] != '/':
+                    tempFileDir = tempFileDir+'/'
+
+                if not os.path.exists(tempFileDir):
+                    os.makedirs(tempFileDir)
+                
                 imgNum, imgName = last_image(tempFileDir)
                 fileDir = tempFileDir
                 response = 'OK: File directory set to '+fileDir
@@ -469,7 +477,11 @@ async def main(HOST, PORT):
     await server.serve_forever()
     
 if __name__ == "__main__":
-    fileDir = os.path.expanduser('~')+'/Pictures/'    
+    fileDir = os.path.expanduser('~')+'/Pictures/'+datetime.now().strftime("%m-%d-%Y")+'/'
+    
+    if not os.path.exists(fileDir):
+        os.makedirs(fileDir)
+
     imgNum, imgName = last_image(fileDir)
     log = log_start()
 
