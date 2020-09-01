@@ -4,7 +4,7 @@
 # Aidan Gray
 # aidan.gray@idg.jhu.edu
 # 
-# This is an Indi Client for testing the Trius Cam on Indi Server.
+# This is an IndiClient for controlling a Trius Cam on IndiServer.
 
 import asyncio
 import PyIndi
@@ -29,7 +29,6 @@ class IndiClient(PyIndi.BaseClient):
         pass
     def newBLOB(self, bp):
         global blobEvent
-        #print("new BLOB ", bp.name)
         blobEvent.set()
         pass
     def newSwitch(self, svp):
@@ -47,8 +46,14 @@ class IndiClient(PyIndi.BaseClient):
     def serverDisconnected(self, code):
         pass
 
-# create log
 def log_start():
+    """
+	Create a logfile that the rest of the script can write to.
+
+	Output:
+	- log 	Object used to access write abilities
+    """
+
     scriptDir = os.path.dirname(os.path.abspath(__file__))
     scriptName = os.path.splitext(os.path.basename(__file__))[0]
     log = logging.getLogger('cam_server')
@@ -60,10 +65,17 @@ def log_start():
     return log
     
 def connect_to_indi():
-    # connect the server
+	"""
+	Establish a TCP connection to the indiserver via port 7624
+
+	Output:
+	- indiclient 	Object used to connect to the device properties
+	"""
+
     indiclient=IndiClient()
     indiclient.setServer("localhost",7624)
-     
+
+	# Ensure the indiserver is running     
     if (not(indiclient.connectServer())):
          print("No indiserver running on "+indiclient.getHost()+":"+str(indiclient.getPort())+" - Try to run")
          print("  indiserver indi_sx_ccd")
@@ -72,6 +84,32 @@ def connect_to_indi():
     return indiclient
 
 def connect_to_ccd():
+	"""
+	Connection routine for the CCD (given below in ccd variable).
+	The following CCD properties are accessed. More can be found
+	by going to indilib.org.
+	- CONNECTION 			Switch
+	- CCD_EXPOSURE 			Number
+	- CCD1 					BLOB
+	- CCD_BINNING			Number
+	- CCD_ABORT_EXPOSURE	Number
+	- CCD_TEMPERATURE 		Number
+	- CCD_COOLER 			Switch
+	- CCD_FRAME_TYPE 		Switch
+
+	Inputs:
+	- NONE
+
+	Outputs:
+	- ccd_exposure 	
+	- ccd_ccd1 		
+	- ccd_bin 		
+	- ccd_abort  	
+	- ccd_temp 		
+	- ccd_cooler 	
+	- ccd_frame 	
+	"""
+
     ccd="SX CCD SXVR-H694"
     device_ccd=indiclient.getDevice(ccd)
     while not(device_ccd):
@@ -135,16 +173,18 @@ def connect_to_ccd():
     
     return ccd_exposure, ccd_ccd1, ccd_bin, ccd_abort, ccd_temp, ccd_cooler, ccd_frame
 
-# run the image_display.py script as a subprocess
-#def run_image_display(filedir):
-#    global p
-#    if p.poll() is None:
-#        p.kill()
-#        p = subprocess.Popen([sys.executable, 'image_display.py', fileDir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-#    else:
-#        p = subprocess.Popen([sys.executable, 'image_display.py', fileDir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-
 def last_image(fileDir):
+	"""
+	Find the last numbered image in the current directory.
+
+	Inputs:
+	- filedir 	the full path of the image directory to search
+
+	Outputs:
+	- lastNum	the number (int) of the last image
+	- lastImg 	the full name of the last image
+	"""
+
     lastNum = 0
     lastImg = ''
     
@@ -164,6 +204,20 @@ def last_image(fileDir):
     return lastNum, lastImg
 
 def exposure(frameType, expTime):
+    """
+	Sends an exposure command to the CCD given the type of frame
+	and exposure time. The received BLOB is of FITS type and is 
+	written to the currently set directory with name: raw-########.fits.
+	The ######## is a padded integer that iterates by 1 after every exposure.
+
+	Inputs:
+	- frameType light/bias/dark/flat
+	- expTime 	exposure time in seconds	
+
+	Output:
+	- fileName 	The name of the fits image
+    """
+
     blobEvent.clear()    
 
     # set the specified frame type
@@ -197,18 +251,13 @@ def exposure(frameType, expTime):
 
     indiclient.sendNewNumber(ccd_exposure)
 
-    name = str(expTime)
-
     # wait for the exposure
     blobEvent.wait()
 
     for blob in ccd_ccd1:
-        #print("name: ", blob.name," size: ", blob.size," format: ", blob.format)
         # pyindi-client adds a getblobdata() method to IBLOB item
         # for accessing the contents of the blob, which is a bytearray in Python
         image_data=blob.getblobdata()
-        
-        #print("fits data type: ", type(image_data))
 
         # write the byte array out to a FITS file
         global imgNum
@@ -220,17 +269,14 @@ def exposure(frameType, expTime):
         f.close()
         imgName = fileName
         
-        ### edit the FITS header. Software changed to use INDI frame setting
-        #fitsFile = fits.open(fileName, 'update')
-        #hdr = fitsFile[0].header
-        #hdr.set('frameType', expType)
-        #fitsFile.close()
-        
     return fileName
 
-# get the exposure state of the CCD
-# return an integer >= 0
 def exposureState():
+	"""
+	Output:
+	- Returns the exposure state of the CCD. This is how much 
+	  time is left in the exposure. 0 if idle, >0 if exposing.
+	"""
     return int(ccd_exposure[0].value)
 
 # change the CCD's parameters based on what the client provides
