@@ -207,6 +207,13 @@ def soft_stop(lib, device_id):
     else:
         return 'BAD: Soft stop failed'
 
+def set_zero(lib, device_id):
+    result = lib.command_zero(device_id)
+    if result == Result.Ok:
+        return 'OK'
+    else:
+        return 'BAD: Zeroing failed'
+
 # command handler, to parse the client's data more precisely
 def handle_command(log, writer, data): 
     response = ''

@@ -22,23 +22,33 @@ import numpy as np
 import subprocess
 import PyGuide
 
-############# CCD Parameters #########################
-# for PyGuide initialization
-BIAS_LEVEL = 1100 # ADU NEED TO UPDATE
+#### Switch to process raw images or not #############
+PROCESS_RAW = True
+BIAS_FILE = 'bias.fits'
+FAKE_STARS = True
+######################################################
+
+#### CCD Parameters for PyGuide init #################
+BIAS_LEVEL = 0 # subtraction done using bias image
 GAIN = 0.27 # e-/ADU
 READ_NOISE = 3.5 # e-
 ######################################################
 
-########### Encoder<->mm/deg/mm Conversion ###########
+#### Encoder<->mm/deg/mm Conversion ##################
 R_CONST = 0.00125
 T_CONST = float(25.9/3600)
 Z_CONST = 0.0000625
 ######################################################
 
+############### SIMULATED PARAMETERS #################
+N_STARS = 10
+SKY_LEVEL = 20 # brightness of night sky
+MAX_COUNTS = 2000
+######################################################
 
 # Stop the running hardware and close the program
 def cancel():
-	print("Cancelling routine, stopping all hardware")
+	print("Stopping routine and all hardware")
 	send_data_tcp(9999, 'stop')
 	send_data_tcp(9997, 'stop')
 	print('Done')
@@ -175,13 +185,48 @@ def get_position_enc():
 
 	return [r_pos, t_pos, z_pos]
 
+def check_CCD_temp():
+	"""
+	Returns the current temperature of the CCD
+	"""
+	rData = send_data_tcp(9999, 'status')
+	ccdTemp = float(rData[rData.find('CCD TEMP: ')+10:rData.find('C\nLAST')])
+	return ccdTemp
+
+def add_fake_stars(image, number=N_STARS, max_counts=MAX_COUNTS, sky_counts=SKY_LEVEL, gain=GAIN):
+
+	# create sky background
+	sky_im = np.random.poisson(sky_counts * gain, size=image.shape) / gain
+
+	flux_range = [max_counts/10, max_counts] # this the range for brightness, flux or counts
+
+    y_max, x_max = image.shape
+    xmean_range = [0.1 * x_max, 0.9 * x_max] # this is where on the chip they land
+    ymean_range = [0.1 * y_max, 0.9 * y_max]
+    xstddev_range = [4,4] # this is a proxy for gaussian width, FWHM, or focus I think.
+    ystddev_range = [4,4]
+    params = dict([('amplitude', flux_range),
+                  ('x_mean', xmean_range),
+                  ('y_mean', ymean_range),
+                  ('x_stddev', xstddev_range),
+                  ('y_stddev', ystddev_range),
+                  ('theta', [0, 2*np.pi])])
+
+    sources = make_random_gaussians_table(number, params,
+                                          random_state=12345)
+    star_im = make_gaussian_sources_image(image.shape, sources)
+
+    fakeData = np.sum(np.array([image, sky_im, star_im]), axis=0)
+
+	return fakeData
+
 # PyGuide Star Checking
 # input: processed image array
 # output: OK (no need for re-exposure), BAD (re-expose)
-def pyguide_checking(img_array):
+def pyguide_checking(imgArray):
 	# search image for stars
 	centroidData, imageStats = PyGuide.findStars(
-		img_array,
+		imgArray,
 		mask = None,
 		satMask = None,
 		ccdInfo = CCDInfo
@@ -197,26 +242,30 @@ def pyguide_checking(img_array):
 # output: bool (False: take another exposure), filename (new, processed file)
 def data_reduction(fileName):
 	try:
-		fitsFile = fits.open(FILE_DIR+fileName)
-		data = fitsFile[0].data
-		hdr = fitsFile[0].header
+		# raw file
+		rawFile = fits.open(FILE_DIR+fileName)
+		rawData = rawFile[0].data
+		rawHdr = rawFile[0].header
 
-		# process the data here
+		# bias file
+		biasFile = fits.open(BIAS_FILE)
+		biasData = biasFile[0].data
 
-		prc_data = data
-		exp_check = pyguide_checking(prc_data)
+		prcData = np.subtract(rawData,biasData)
+
+		exp_check = pyguide_checking(prcData)
 		
 		if exp_check:
 			# save the processed image as a new FITS file
 			# with the processed data and the same header
-			prc_fileName = 'prc'+fileName[3:]
-			fits.writeto(FILE_DIR+prc_fileName, prc_data, hdr)
+			prcFileName = 'prc'+fileName[3:]
+			fits.writeto(FILE_DIR+prcFileName, prcData, rawHdr)
 
 		fitsFile.close()
-		return exp_check, prc_fileName
+		return exp_check, prcFileName
 	
 	except:
-		return False, ''
+		return True, 'DATA REDUCTION FAILED'
 
 # Single Image Script
 # input: r position, theta position, z position, filter slot #, exposure type, exposure time
@@ -233,22 +282,28 @@ def single_image(coords, expType):
 	while check_all_status() == 'BUSY':
 		time.sleep(0.1)	
 
-	change_filter(filt_slot)
-	stage_command(moveCom)
+	rDataF = change_filter(filt_slot)
+	rDataS = stage_command(moveCom)
 
 	# BLOCKING: wait until all hardware is idle before starting exposure routine
 	while check_all_status() == 'BUSY':
 		time.sleep(0.1)	
 
-	exp_check = False
+	if 'BAD' not in rDataF and 'BAD' not in rDataS:
+		exp_check = False
+	else:
+		exp_check = True
+		print(rDataF+rDataS)
+
 	while not exp_check:
 		# BLOCKING: Nothing should be happening while an exposure occurs
 		print('STARTING EXPOSURE...')	
-		fileName, rData = expose(expType, expTime)
+		fileName, rDataC = expose(expType, expTime)
 		print('...DONE EXPOSURE: '+fileName)
 
-		if 'BAD' in rData:
+		if 'BAD' in rDataC:
 			exp_check = True
+			print(rDataC)
 		else:
 			# get the encoder counts to obtain precise location
 			enc_positions = get_position_enc()
@@ -257,8 +312,10 @@ def single_image(coords, expType):
 			resp = edit_fits(fileName, [['R_POS', enc_positions[0]], ['T_POS', enc_positions[1]], ['Z_POS', enc_positions[2]]])
 
 			# perform data reduction, search for stars, determine if exposure change is necessary
-			exp_check, prc_fileName = data_reduction(fileName)
-			exp_check = True
+			if PROCESS_RAW:
+				exp_check, prc_fileName = data_reduction(fileName)
+			else:
+				exp_check = True
 
 # Focus Step & Camera Exposure
 # input: polar coordinates list (also containing exposure value & filter slot), exposure type, 
@@ -332,7 +389,23 @@ if __name__ == "__main__":
 			)
 
 		methodLoop = True
-		
+
+		print("Checking connection to hardware...")
+		try:
+			send_data_tcp(9999, 'status')
+			send_data_tcp(9998, 'status')
+			send_data_tcp(9997, 'status')
+		except ConnectionRefusedError as err:
+			print("...FAILED. Check hardware servers are running.")
+			sys.exit(err)
+
+		print("...SUCCESS.")
+
+		ccdTemp = check_CCD_temp()
+		if ccdTemp < -40 or ccdTemp > 0:
+			sys.exit("Error with CCD, as noted by incorrect CCD Temp. Please disconnect and reconnect CCD power & data.")
+		#print("CCD Temp is: "+str(check_CCD_temp()))
+
 		userDir = input("Specify image directory or DEF for default: ")
 
 		if 'DEF' in userDir.upper() or '' == userDir:
