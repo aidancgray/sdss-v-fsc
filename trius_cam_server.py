@@ -71,7 +71,7 @@ def connect_to_indi():
     Output:
     - indiclient    Object used to connect to the device properties
     """
-
+    
     indiclient=IndiClient()
     indiclient.setServer("localhost",7624)
 
@@ -88,6 +88,7 @@ def connect_to_ccd():
     Connection routine for the CCD (given below in ccd variable).
     The following CCD properties are accessed. More can be found
     by going to indilib.org.
+
     - CONNECTION            Switch
     - CCD_EXPOSURE          Number
     - CCD1                  BLOB
@@ -333,7 +334,6 @@ def setParams(commandList):
                 global imgNum
                 global imgName
                 global fileDir
-                global p
                 tempFileDir = i.replace('fileDir=','')
                 
                 if tempFileDir[len(tempFileDir)-1] != '/':
@@ -530,8 +530,6 @@ if __name__ == "__main__":
 
     imgNum, imgName = last_image(fileDir)
     log = log_start()
-
-    #p = subprocess.Popen([sys.executable, 'image_display.py', fileDir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     
     # connect to the local indiserver
     indiclient = connect_to_indi()
