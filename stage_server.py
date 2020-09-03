@@ -17,13 +17,20 @@ import time
 import math
 import threading
 
-# change depending on input (mm/deg/arcsec/rad/etc)
+#### Steps<->mm/deg/mm Conversion ####################
 R_CONST = 0.025 # mm
 T_CONST = 0.144 # deg
 Z_CONST = 0.00125 # mm
+######################################################
 
-# create an event log
 def log_start():
+    """
+    Create a logfile that the rest of the script can write to.
+
+    Output:
+    - log 	Object used to access write abilities
+    """
+
     scriptDir = os.path.dirname(os.path.abspath(__file__))
     scriptName = os.path.splitext(os.path.basename(__file__))[0]
     log = logging.getLogger('stage_server')
@@ -34,9 +41,13 @@ def log_start():
     log.setLevel(logging.INFO)
     return log
 
-# Scans for all available devices.
-# Returns a list of devices and the # of devices 
 def scan_for_devices():
+    """
+    Scans for motor controllers on USB
+
+    Returns the number and list of devices found
+    """
+
     probe_flags = EnumerateFlags.ENUMERATE_PROBE
     devenum = lib.enumerate_devices(probe_flags, None)
     dev_count = lib.get_device_count(devenum)
@@ -52,8 +63,18 @@ def scan_for_devices():
 
     return devices_list, dev_count
 
-# Returns BUSY or IDLE depending if the stage is moving
 def get_move_status(lib, device_id):
+    """
+    Returns the moving status of the given device
+
+    Inputs:
+    - lib       The library for accessing these devices
+    - device_id The ID of the desired device
+
+    Output:
+    - BUSY/IDLE
+    """
+
     device_status = status_t()
 
     result = lib.get_status(device_id, byref(device_status))
@@ -66,8 +87,19 @@ def get_move_status(lib, device_id):
         else:
             return 'IDLE'
 
-# Returns relevant status information for all 3 devices
 def get_status(lib, open_devs):
+    """
+    Returns the full status of all connected devices.
+
+    Inputs:
+    - lib       The library for accessing these devices
+    - open_devs The list of all connected devices
+
+    Output:
+    - response      OK/BAD
+    - all_status    A string containing info on all devices
+    """
+
     all_status = ''
     r_status = status_t()
     t_status = status_t()
@@ -104,8 +136,19 @@ def get_status(lib, open_devs):
         response = 'BAD: get_status() failed'
     return response, all_status
 
-# Returns the current position of the devices in readable units
 def get_position(lib, open_devs):
+    """
+    Returns the positions of all the connected devices
+
+    Inputs:
+    - lib       The library for accessing these devices
+    - open_devs The list of all connected devices
+
+    Output:
+    - response  OK/BAD
+    - all_pos   list of all positions in standard units and encoder counts
+    """
+
     response = 'OK'
     r_pos = get_position_t()
     t_pos = get_position_t()
@@ -132,8 +175,19 @@ def get_position(lib, open_devs):
         response = 'BAD: get_position() failed'
     return response, all_pos
 
-# Returns the current position of the given device in steps
 def get_step_position(lib, device_id):
+    """
+    Returns the position in steps. Microsteps (#/256) converted
+    to decimal.
+
+    Inputs:
+    - lib       The library for accessing these devices
+    - device_id The ID of the desired device
+
+    Output:
+    - position  The step count as a decimal
+    """
+
     response = 'OK'
     device_pos = get_position_t()
 
@@ -144,8 +198,19 @@ def get_step_position(lib, device_id):
         response = 'BAD: get_position() failed'
     return position
 
-# return the set speed of the motors
 def get_speed(lib, device_id):
+    """
+    Returns the speed in steps/s.
+
+    Inputs:
+    - lib       The library for accessing these devices
+    - device_id The ID of the desired device
+
+    Output:
+    - mvst.Speed    Speed in steps
+    - mvst.uSpeed   Leftover uSteps
+    """
+
     mvst = move_settings_t()
     result = lib.get_move_settings(device_id, byref(mvst))
     if result == Result.Ok:    
@@ -153,8 +218,19 @@ def get_speed(lib, device_id):
     else:
         return 0
 
-# sets the speed of the desired motor
 def set_speed(lib, device_id, speed):
+    """
+    Sets the speed in steps/s.
+
+    Inputs:
+    - lib       The library for accessing these devices
+    - device_id The ID of the desired device
+    - speed     Speed (as a decimal) in steps/s
+
+    Output:
+    - OK/BAD
+    """
+
     mvst = move_settings_t()
     result = lib.get_move_settings(device_id, byref(mvst))
 
@@ -176,8 +252,19 @@ def set_speed(lib, device_id, speed):
     else:
         return 'BAD: get_move_settings() failed'
 
-# sends the given device an absolute position (in steps) to move to
 def move(lib, device_id, distance):
+    """
+    Sends a move command for the given steps.
+
+    Inputs:
+    - lib       The library for accessing these devices
+    - device_id The ID of the desired device
+    - distance  In steps as a decimal
+
+    Output:
+    - OK/BAD
+    """
+
     # split the integer from the decimal
     u_distance, distance = math.modf(distance)
 
@@ -190,8 +277,17 @@ def move(lib, device_id, distance):
     else:
         return 'BAD: Move command failed'
 
-# homes the given device
 def home(lib, device_id):
+    """
+    Sends a home command for the given device.
+
+    Inputs:
+    - lib       The library for accessing these devices
+    - device_id The ID of the desired device
+
+    Output:
+    - OK/BAD
+    """
     result = lib.command_homezero(device_id)
     print('done homing')
     if result == Result.Ok:
@@ -199,8 +295,17 @@ def home(lib, device_id):
     else:
         return 'BAD: Home command failed'
 
-# soft stop the given device
 def soft_stop(lib, device_id):
+    """
+    Sends a stop command to the given device.
+
+    Inputs:
+    - lib       The library for accessing these devices
+    - device_id The ID of the desired device
+
+    Output:
+    - OK/BAD
+    """
     result = lib.command_sstp(device_id)
     if result == Result.Ok:
         return 'OK'
@@ -208,6 +313,17 @@ def soft_stop(lib, device_id):
         return 'BAD: Soft stop failed'
 
 def set_zero(lib, device_id):
+    """
+    Sets the current position to zero for the given device. 
+    Both step counts and encoder counts are zeroed.
+
+    Inputs:
+    - lib       The library for accessing these devices
+    - device_id The ID of the desired device
+
+    Output:
+    - OK/BAD
+    """
     result = lib.command_zero(device_id)
     if result == Result.Ok:
         return 'OK'
@@ -216,6 +332,17 @@ def set_zero(lib, device_id):
 
 # command handler, to parse the client's data more precisely
 def handle_command(log, writer, data): 
+    """
+    Determines what to do with the incoming data, whether it is move, offset,
+    home, or set speed. This is a separate method from handle_client() 
+    because it is called as a new thread, so ensure the exposure is non-blocking.
+
+    Input:
+    - log       object to access the logger
+    - writer    object to write data back to the client
+    - data      the data received from the client
+    """
+
     response = ''
     response_r = ''
     response_t = ''
@@ -419,9 +546,19 @@ def handle_command(log, writer, data):
 
 # async client handler, for multiple connections
 async def handle_client(reader, writer):
+    """
+    This is the method that receives the client's data and decides what to do
+    with it. It runs in a loop to always be accepting new connections. If the
+    data is 'status', all motor status are returned. If the data is 'stop', all
+    running motors are stopped and set to ready state. If anything else, a new 
+    thread is created and the data is sent to handle_command().
+
+    Inputs:
+    - reader    from the asyncio library, to read incoming data
+    - writer    from the asyncio library, to write outgoing data
+    """
+
     request = None
-    
-    # loop to continually handle incoming data
     while request != 'quit':        
         request = (await reader.read(255)).decode('utf8').strip()
         print(request.encode('utf8'))

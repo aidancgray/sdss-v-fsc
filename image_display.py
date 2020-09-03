@@ -15,8 +15,14 @@ from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler
 from trius_cam_server import *
 
-# create log
 def log_start():
+    """
+    Create a logfile that the rest of the script can write to.
+
+    Output:
+    - log 	Object used to access write abilities
+    """
+
     scriptDir = os.path.dirname(os.path.abspath(__file__))
     scriptName = os.path.splitext(os.path.basename(__file__))[0]
     log = logging.getLogger('file-watch')
@@ -28,6 +34,12 @@ def log_start():
     return log
 
 def on_created(event):
+    """
+    Sends the new FITS file path to the DS9 open
+
+    Input:
+    - event     The triggered event, containing the filename
+    """
     global d
     log.info(f"Created: {event.src_path}")
     d.set("file "+event.src_path)

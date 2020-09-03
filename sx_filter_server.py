@@ -4,8 +4,7 @@
 # Aidan Gray
 # aidan.gray@idg.jhu.edu
 # 
-# This is an Indi Client for running/controlling
-# the SX Filter Wheel on Indi Server.
+# This is an IndiClient for controlling an SX Filter Wheel on IndiServer.
 
 import asyncio
 import PyIndi
@@ -27,11 +26,6 @@ class IndiClient(PyIndi.BaseClient):
         pass
     def removeProperty(self, p):
         pass
-    def newBLOB(self, bp):
-        global blobEvent
-        #print("new BLOB ", bp.name)
-        blobEvent.set()
-        pass
     def newSwitch(self, svp):
         pass
     def newNumber(self, nvp):
@@ -47,8 +41,14 @@ class IndiClient(PyIndi.BaseClient):
     def serverDisconnected(self, code):
         pass
 
-# create log
 def log_start():
+    """
+    Create a logfile that the rest of the script can write to.
+
+    Output:
+    - log 	Object used to access write abilities
+    """
+
     scriptDir = os.path.dirname(os.path.abspath(__file__))
     scriptName = os.path.splitext(os.path.basename(__file__))[0]
     log = logging.getLogger('filter_server')
@@ -60,7 +60,13 @@ def log_start():
     return log
     
 def connect_to_indi():
-    # connect the server
+    """
+    Establish a TCP connection to the indiserver via port 7624
+
+    Output:
+    - indiclient 	Object used to connect to the device properties
+    """
+    # Ensure the indiserver is running
     indiclient=IndiClient()
     indiclient.setServer("localhost",7624)
      
@@ -72,6 +78,22 @@ def connect_to_indi():
     return indiclient
 
 def connect_to_wheel():
+    """
+    Connection routine for the Filter Wheel (given below in filter variable).
+    The following Filter Wheel properties are accessed. More can be found
+    by going to indilib.org.
+    - CONNECTION 			Switch
+    - FILTER_SLOT 			Number
+    - FILTER_NAME			Text
+
+    Inputs:
+    - NONE
+
+    Outputs:
+    - filter_slot 	
+    - filter_name	
+    """
+
     filter="SX Wheel"
     device_filter=indiclient.getDevice(filter)
     while not(device_filter):
@@ -105,17 +127,28 @@ def connect_to_wheel():
 
     return filter_slot, filter_name
 
-# get the wheel moving state
-# return a bool whether moving or not
 def slotState():
+    """
+    Returns True if the wheel is busy moving
+    Returns False if the wheel is idle
+    """
+
     if filter_slot[0].value == cSLOT:
         return False
     else:
         return True
 
-# change the filter wheel's parameters based on what the client provides
 def setParams(commandList):
-    
+    """
+    Changes filter wheel parameters/settings based on the given arguments
+
+    Input:
+    - commandList   a list of strings, each being a parameter to set
+
+    Output:
+    - response      the response, OK/BAD
+    """
+
     response = ''
     global cSLOT
 
@@ -153,8 +186,18 @@ def setParams(commandList):
 
     return response
 
-# command handler, to parse the client's data more precisely
 def handle_command(log, writer, data): 
+    """
+    Determines what to do with the incoming data - setting a parameter. 
+    This is a separate method from handle_client() because it is called 
+    as a new thread, so ensure the exposure is non-blocking.
+
+    Input:
+    - log       object to access the logger
+    - writer    object to write data back to the client
+    - data      the data received from the client
+    """
+
     response = 'BAD: Invalid Command'
     commandList = data.split()
 
@@ -172,9 +215,19 @@ def handle_command(log, writer, data):
 
 # async client handler, for multiple connections
 async def handle_client(reader, writer):
+    """
+    This is the method that receives the client's data and decides what to do
+    with it. It runs in a loop to always be accepting new connections. If the
+    data is 'status', the Filter Wheel status is returned. If the data is 
+    anything else, a new thread is created and the data is sent to handle_command().
+
+    Inputs:
+    - reader    from the asyncio library, to read incoming data
+    - writer    from the asyncio library, to write outgoing data
+    """
+
     request = None
     
-    # loop to continually handle incoming data
     while request != 'quit':        
         request = (await reader.read(255)).decode('utf8')
         print(request.encode('utf8'))

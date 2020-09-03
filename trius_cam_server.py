@@ -103,12 +103,12 @@ def connect_to_ccd():
 
     Outputs:
     - ccd_exposure  
-    - ccd_ccd1      
-    - ccd_bin       
-    - ccd_abort     
-    - ccd_temp      
-    - ccd_cooler    
-    - ccd_frame     
+    - ccd_ccd1
+    - ccd_bin
+    - ccd_abort
+    - ccd_temp
+    - ccd_cooler
+    - ccd_frame
     """
 
     ccd="SX CCD SXVR-H694"
@@ -213,7 +213,7 @@ def exposure(frameType, expTime):
 
     Inputs:
     - frameType light/bias/dark/flat
-    - expTime   exposure time in seconds    
+    - expTime   exposure time in seconds
 
     Output:
     - fileName  The name of the fits image
@@ -280,8 +280,16 @@ def exposureState():
     """
     return int(ccd_exposure[0].value)
 
-# change the CCD's parameters based on what the client provides
 def setParams(commandList):
+    """
+    Changes CCD parameters/settings based on the given arguments
+
+    Input:
+    - commandList   a list of strings, each being a parameter to set
+
+    Output:
+    - response      the response, OK/BAD
+    """
 
     for i in commandList:
         # set the bin mode (1x1 or 2x2)
@@ -392,13 +400,22 @@ def setParams(commandList):
 
     return response
 
-# command handler, to parse the client's data more precisely
 def handle_command(log, writer, data): 
+    """
+    Determines what to do with the incoming data, whether it is sending an exposure
+    command or setting a parameter. This is a separate method from handle_client() 
+    because it is called as a new thread, so ensure the exposure is non-blocking.
+
+    Input:
+    - log       object to access the logger
+    - writer    object to write data back to the client
+    - data      the data received from the client
+    """
+
     response = 'BAD: Invalid Command'
     commandList = data.split()
 
     try:
-        # check if command is Expose, Set, or Get
         if commandList[0] == 'expose':
             if len(commandList) == 3:
                 if commandList[1] == 'light' or commandList[1] == 'dark' or commandList[1] == 'flat':
@@ -432,8 +449,19 @@ def handle_command(log, writer, data):
     log.info('RESPONSE: '+response)
     writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
 
-# async client handler, for multiple connections
 async def handle_client(reader, writer):
+    """
+    This is the method that receives the client's data and decides what to do
+    with it. It runs in a loop to always be accepting new connections. If the
+    data is 'status', the CCD status is returned. If the data is 'stop', the current
+    exposure is stopped. If the data is anything else, a new thread is created and
+    the data is sent to handle_command().
+
+    Inputs:
+    - reader    from the asyncio library, to read incoming data
+    - writer    from the asyncio library, to write outgoing data
+    """
+
     request = None
     
     # loop to continually handle incoming data
