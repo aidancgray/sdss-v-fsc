@@ -10,6 +10,8 @@
 from astropy.io import fits
 from ctypes import *
 from datetime import datetime
+from matplotlib import pyplot as plt
+from photutils.datasets import make_random_gaussians_table, make_gaussian_sources_image
 import socket
 import logging
 import os
@@ -45,6 +47,9 @@ N_STARS = 10
 SKY_LEVEL = 20 # brightness of night sky
 MAX_COUNTS = 2000
 ######################################################
+
+def show_image(imgData):
+    plt.imshow(imgData, cmap="gray")
 
 def cancel():
     """
@@ -259,7 +264,7 @@ def check_CCD_temp():
     ccdTemp = float(rData[rData.find('CCD TEMP: ')+10:rData.find('C\nLAST')])
     return ccdTemp
 
-def add_fake_stars(image, number=N_STARS, max_counts=MAX_COUNTS, sky_counts=SKY_LEVEL, gain=GAIN):
+def add_fake_stars(image, number=N_STARS, max_counts=10000, sky_counts=SKY_LEVEL, gain=GAIN):
     """
     Adds fake stars to a dark image from the CCD. Used for testing while not on-telescope
 
@@ -294,7 +299,7 @@ def add_fake_stars(image, number=N_STARS, max_counts=MAX_COUNTS, sky_counts=SKY_
                                           random_state=12345)
     star_im = make_gaussian_sources_image(image.shape, sources)
 
-    fakeData = np.sum(np.array([image, sky_im, star_im]), axis=0)
+    fakeData = image + sky_im + star_im
 
     return fakeData
 
@@ -315,6 +320,37 @@ def pyguide_checking(imgArray):
         satMask = None,
         ccdInfo = CCDInfo
         )
+
+    show_image(imgArray)
+    plt.show()
+    plt.close()
+
+    print("these are the %i stars pyguide found in descending order of brightness:"%len(centroidData))
+    for centroid in centroidData:
+        # for each star, measure its shape
+        shapeData = PyGuide.starShape(
+            np.asarray(imgArray, dtype="float32"), # had to explicitly cast for some reason
+            mask = None,
+            xyCtr = centroid.xyCtr,
+            rad = centroid.rad
+        )
+        if not shapeData.isOK:
+            print("starShape failed: %s" % (shapeData.msgStr,))
+        else:
+            print("xyCenter=[%.2f, %.2f] counts(total integrated flux from star, brightness)=%.2f star ampl(amplitude of fit gaussian, peak counts)=%.1f, fwhm(width of Gaussian, focus)=%.1f, bkgnd=%.1f, chiSq=%.2f" %\
+                (centroid.xyCtr[0], centroid.xyCtr[1], centroid.counts, shapeData.ampl,shapeData.fwhm, shapeData.bkgnd, shapeData.chiSq))
+    print()
+
+    ### highlight detections
+    ### size of green circle scales with total counts
+    ### bigger circles for brigher stars
+    plt.imshow(imgArray, cmap="gray", vmin=200, vmax=MAX_COUNTS) # vmin/vmax help with contrast
+    for centroid in centroidData:
+        xyCtr = centroid.xyCtr + np.array([-0.5, -0.5]) # offset by half a pixel to match imshow with 0,0 at pixel center rather than edge
+        counts = centroid.counts
+        plt.scatter(xyCtr[0], xyCtr[1], s=counts/MAX_COUNTS, marker="o", edgecolors="lime", facecolors="none")
+    plt.show()
+    plt.close()
 
     # analyze stars here
     # determine if more exposures are necessary
@@ -343,7 +379,13 @@ def data_reduction(fileName):
         biasFile = fits.open(BIAS_FILE)
         biasData = biasFile[0].data
 
-        prcData = np.subtract(rawData,biasData)
+        #prcData = np.subtract(rawData,biasData)
+        prcData = rawData
+
+        if FAKE_STARS:
+            synthetic_image = np.zeros([2200, 2750])
+            fakeData = add_fake_stars(synthetic_image, number=N_STARS, max_counts=MAX_COUNTS, sky_counts=SKY_LEVEL, gain=GAIN)
+            prcData = prcData + fakeData
 
         exp_check = pyguide_checking(prcData)
         
@@ -397,6 +439,11 @@ def single_image(coords, expType):
         print(rDataF+rDataS)
 
     while not exp_check:
+        # ensure the CCD hasn't entered an error state
+        ccdTemp = check_CCD_temp()
+        if ccdTemp < -40 or ccdTemp > 30:
+            sys.exit("Error with CCD, as noted by incorrect CCD Temp. Please disconnect and reconnect CCD power & data.")
+
         # BLOCKING: Nothing should be happening while an exposure occurs
         print('STARTING EXPOSURE...')	
         fileName, rDataC = expose(expType, expTime)
@@ -521,7 +568,7 @@ if __name__ == "__main__":
         print("...SUCCESS.")
 
         ccdTemp = check_CCD_temp()
-        if ccdTemp < -40 or ccdTemp > 0:
+        if ccdTemp < -40 or ccdTemp > 30:
             sys.exit("Error with CCD, as noted by incorrect CCD Temp. Please disconnect and reconnect CCD power & data.")
         #print("CCD Temp is: "+str(check_CCD_temp()))
 
