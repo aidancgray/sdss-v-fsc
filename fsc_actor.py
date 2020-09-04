@@ -321,9 +321,9 @@ def pyguide_checking(imgArray):
         ccdInfo = CCDInfo
         )
 
-    show_image(imgArray)
-    plt.show()
-    plt.close()
+    #show_image(imgArray)
+    #plt.show()
+    #plt.close()
 
     print("these are the %i stars pyguide found in descending order of brightness:"%len(centroidData))
     for centroid in centroidData:
@@ -344,13 +344,13 @@ def pyguide_checking(imgArray):
     ### highlight detections
     ### size of green circle scales with total counts
     ### bigger circles for brigher stars
-    plt.imshow(imgArray, cmap="gray", vmin=200, vmax=MAX_COUNTS) # vmin/vmax help with contrast
-    for centroid in centroidData:
-        xyCtr = centroid.xyCtr + np.array([-0.5, -0.5]) # offset by half a pixel to match imshow with 0,0 at pixel center rather than edge
-        counts = centroid.counts
-        plt.scatter(xyCtr[0], xyCtr[1], s=counts/MAX_COUNTS, marker="o", edgecolors="lime", facecolors="none")
-    plt.show()
-    plt.close()
+    #plt.imshow(imgArray, cmap="gray", vmin=200, vmax=MAX_COUNTS) # vmin/vmax help with contrast
+    #for centroid in centroidData:
+    #    xyCtr = centroid.xyCtr + np.array([-0.5, -0.5]) # offset by half a pixel to match imshow with 0,0 at pixel center rather than edge
+    #    counts = centroid.counts
+    #    plt.scatter(xyCtr[0], xyCtr[1], s=counts/MAX_COUNTS, marker="o", edgecolors="lime", facecolors="none")
+    #plt.show()
+    #plt.close()
 
     # analyze stars here
     # determine if more exposures are necessary
@@ -375,17 +375,17 @@ def data_reduction(fileName):
         rawData = rawFile[0].data
         rawHdr = rawFile[0].header
 
+        if FAKE_STARS:
+            synthetic_image = np.zeros([2200, 2750])
+            fakeData = add_fake_stars(synthetic_image, number=N_STARS, max_counts=MAX_COUNTS, sky_counts=SKY_LEVEL, gain=GAIN)
+            rawData = rawData + fakeData
+
         # bias file
         biasFile = fits.open(BIAS_FILE)
         biasData = biasFile[0].data
 
-        #prcData = np.subtract(rawData,biasData)
-        prcData = rawData
-
-        if FAKE_STARS:
-            synthetic_image = np.zeros([2200, 2750])
-            fakeData = add_fake_stars(synthetic_image, number=N_STARS, max_counts=MAX_COUNTS, sky_counts=SKY_LEVEL, gain=GAIN)
-            prcData = prcData + fakeData
+        prcData = np.subtract(rawData,biasData)
+        #prcData = rawData
 
         exp_check = pyguide_checking(prcData)
         
@@ -588,7 +588,7 @@ if __name__ == "__main__":
             send_data_tcp(9999, 'set fileDir='+FILE_DIR)
 
         # open image_display.py as a subprocess
-        p = display_images(FILE_DIR)
+        p = display_images(FILE_DIR) 
 
         # Select the measurement method to use
         while methodLoop:
@@ -608,6 +608,9 @@ if __name__ == "__main__":
                     else:
                         expTime = input("Enter exposure time (s): ")
 
+                    # open image_display.py as a subprocess
+                    #p = display_images(FILE_DIR)   
+                    
                     single_image([r_pos, t_pos, z_pos, expTime, filt_slot], expType)
 
                     tdata = input("Again (enter key) or quit (q)? ")
@@ -649,14 +652,24 @@ if __name__ == "__main__":
 
                 if '1' in method:
                     methodLoop = False
+
+                    # open image_display.py as a subprocess
+                    #p = display_images(FILE_DIR)
+
                     go_to_fp_coords(polar_coords, expType, focusOffset, focusNum)
                     
                 elif '2' in method:
                     print("Not yet implemented")
                     #methodLoop = False
                     
+                    # open image_display.py as a subprocess
+                    #p = display_images(FILE_DIR)
+                    
                 elif '3' in method:
                     methodLoop = False
+
+                    # open image_display.py as a subprocess
+                    #p = display_images(FILE_DIR)
 
                     multiTargetLoop = True
                     while multiTargetLoop:

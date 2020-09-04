@@ -15,6 +15,12 @@ from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler
 from trius_cam_server import *
 
+#### DS9 Image Display Parameters ####################
+CMAP = '3 0.1' # first number is the contrast, second is bias
+SHOW_RAW = True # display raw images
+SHOW_PRC = True # display processed images
+######################################################
+
 def log_start():
     """
     Create a logfile that the rest of the script can write to.
@@ -42,15 +48,30 @@ def on_created(event):
     """
     global d
     log.info(f"Created: {event.src_path}")
+    d.set("frame clear")
     d.set("file "+event.src_path)
+    time.sleep(1)
+    d.set("zoom to fit")
         
 if __name__ == "__main__":
     path = sys.argv[1]
     log = log_start()
     d = pyds9.DS9()
+    d.set("cmap "+CMAP)
 
-    patterns = [path+"raw-*"]
-    ignore_patterns = [path+"prc-*"]
+    if SHOW_RAW and SHOW_PRC:
+        patterns = [path+"*.fits"]
+        ignore_patterns = []
+    elif SHOW_RAW and not SHOW_PRC:
+        patterns = [path+"raw-*"]
+        ignore_patterns = [path+"prc-*"]
+    elif not SHOW_RAW and SHOW_PRC:
+        patterns = [path+"prc-*"]
+        ignore_patterns = [path+"raw-*"]
+    else:
+        patterns = []
+        ignore_patterns = []
+
     ignore_directories = True
     case_sensitive = True
 
