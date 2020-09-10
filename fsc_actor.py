@@ -28,6 +28,8 @@ import PyGuide
 PROCESS_RAW = True
 BIAS_FILE = 'bias.fits'
 FAKE_STARS = True
+EXP_TIME_FACTOR = 0.5 # Must be >0 and <1
+MAX_EXP_COUNT = 3
 ######################################################
 
 #### CCD Parameters for PyGuide init #################
@@ -45,7 +47,7 @@ Z_CONST = 0.0000625
 ############### SIMULATED PARAMETERS #################
 N_STARS = 10
 SKY_LEVEL = 20 # brightness of night sky
-MAX_COUNTS = 2000
+MAX_COUNTS = 17000
 ######################################################
 
 def show_image(imgData):
@@ -163,8 +165,10 @@ def display_images(fileDir):
     try:
         if p.poll() is None:
             p.kill()
+        print("Image_Display script watching dir: "+fileDir)
         return subprocess.Popen([sys.executable, 'image_display.py', fileDir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     except:
+        print("Image_Display script watching dir: "+fileDir)
         return subprocess.Popen([sys.executable, 'image_display.py', fileDir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 def expose(expType, expTime):
@@ -264,7 +268,7 @@ def check_CCD_temp():
     ccdTemp = float(rData[rData.find('CCD TEMP: ')+10:rData.find('C\nLAST')])
     return ccdTemp
 
-def add_fake_stars(image, number=N_STARS, max_counts=10000, sky_counts=SKY_LEVEL, gain=GAIN):
+def add_fake_stars(image, expTime, number=N_STARS, max_counts=MAX_COUNTS, sky_counts=SKY_LEVEL, gain=GAIN):
     """
     Adds fake stars to a dark image from the CCD. Used for testing while not on-telescope
 
@@ -274,6 +278,7 @@ def add_fake_stars(image, number=N_STARS, max_counts=10000, sky_counts=SKY_LEVEL
     - max_counts    The max counts for the stars to have
     - sky_counts    Counts to use for adding sky background
     - gain          CCD gain
+    - expTime       The exposure time of the raw image, to scale star brightness
 
     Output:
     - fakeData      A numpy array containing the fake star image
@@ -281,7 +286,8 @@ def add_fake_stars(image, number=N_STARS, max_counts=10000, sky_counts=SKY_LEVEL
     # create sky background
     sky_im = np.random.poisson(sky_counts * gain, size=image.shape) / gain
 
-    flux_range = [max_counts/10, max_counts] # this the range for brightness, flux or counts
+    #flux_range = [max_counts/10, max_counts] # this the range for brightness, flux or counts
+    flux_range = [float(expTime) * (max_counts/100), float(expTime) * (max_counts/10)]
 
     y_max, x_max = image.shape
     xmean_range = [0.1 * x_max, 0.9 * x_max] # this is where on the chip they land
@@ -296,7 +302,7 @@ def add_fake_stars(image, number=N_STARS, max_counts=10000, sky_counts=SKY_LEVEL
                   ('theta', [0, 2*np.pi])])
 
     sources = make_random_gaussians_table(number, params,
-                                          random_state=12345)
+                                          random_state=11111)
     star_im = make_gaussian_sources_image(image.shape, sources)
 
     fakeData = image + sky_im + star_im
@@ -312,6 +318,7 @@ def pyguide_checking(imgArray):
 
     Output:
     - True if exposure was good, False if bad
+    - True if exposure time should be decreased, False if increased
     """
     # search image for stars
     centroidData, imageStats = PyGuide.findStars(
@@ -321,9 +328,10 @@ def pyguide_checking(imgArray):
         ccdInfo = CCDInfo
         )
 
-    #show_image(imgArray)
-    #plt.show()
-    #plt.close()
+    # keep track of targets
+    goodTargets = []
+    lowTargets = 0
+    highTargets = 0
 
     print("these are the %i stars pyguide found in descending order of brightness:"%len(centroidData))
     for centroid in centroidData:
@@ -337,32 +345,46 @@ def pyguide_checking(imgArray):
         if not shapeData.isOK:
             print("starShape failed: %s" % (shapeData.msgStr,))
         else:
-            print("xyCenter=[%.2f, %.2f] counts(total integrated flux from star, brightness)=%.2f star ampl(amplitude of fit gaussian, peak counts)=%.1f, fwhm(width of Gaussian, focus)=%.1f, bkgnd=%.1f, chiSq=%.2f" %\
-                (centroid.xyCtr[0], centroid.xyCtr[1], centroid.counts, shapeData.ampl,shapeData.fwhm, shapeData.bkgnd, shapeData.chiSq))
+            print("xyCenter=[%.2f, %.2f] star ampl(amplitude of fit gaussian, peak counts)=%.1f, fwhm(width of Gaussian, focus)=%.1f, bkgnd=%.1f, chiSq=%.2f" %\
+                (centroid.xyCtr[0], centroid.xyCtr[1], shapeData.ampl,shapeData.fwhm, shapeData.bkgnd, shapeData.chiSq))
+            if shapeData.ampl < 0.2*MAX_COUNTS:
+                lowTargets+=1
+            elif shapeData.ampl > 0.9*MAX_COUNTS:
+                highTargets+=1
+            else:
+                goodTargets.append([centroid,shapeData])
     print()
+
+    print(str(len(goodTargets))+" targets are in the linear (20-90%) range --- "+str(lowTargets)+" low targets --- "+str(highTargets)+" high targets")
+    
+    # return False if there are no good stars found
+    if len(goodTargets) == 0:
+        if lowTargets < highTargets:
+            return False, True
+        else:
+            return False, False
 
     ### highlight detections
     ### size of green circle scales with total counts
     ### bigger circles for brigher stars
-    #plt.imshow(imgArray, cmap="gray", vmin=200, vmax=MAX_COUNTS) # vmin/vmax help with contrast
-    #for centroid in centroidData:
-    #    xyCtr = centroid.xyCtr + np.array([-0.5, -0.5]) # offset by half a pixel to match imshow with 0,0 at pixel center rather than edge
-    #    counts = centroid.counts
-    #    plt.scatter(xyCtr[0], xyCtr[1], s=counts/MAX_COUNTS, marker="o", edgecolors="lime", facecolors="none")
-    #plt.show()
-    #plt.close()
+    plt.imshow(imgArray, cmap="gray", vmin=200, vmax=MAX_COUNTS) # vmin/vmax help with contrast
+    for centroid in centroidData:
+        xyCtr = centroid.xyCtr + np.array([-0.5, -0.5]) # offset by half a pixel to match imshow with 0,0 at pixel center rather than edge
+        counts = centroid.counts
+        plt.scatter(xyCtr[0], xyCtr[1], s=counts/MAX_COUNTS, marker="o", edgecolors="lime", facecolors="none")
+    plt.show()
+    plt.close()
 
-    # analyze stars here
-    # determine if more exposures are necessary
+    # Successful exposure, return True. The False is thrown away
+    return True, False
 
-    return True
-
-def data_reduction(fileName):
+def data_reduction(fileName, expTime):
     """
     Data processing function. Subtracts bias from raw and saves as processed (if good).
 
     Input:
     - fileName      Name of the FITS file for the raw image
+    - expTime       The image's exposure time
 
     Output:
     - exp_check     True: no more exposure necessary. False: take another.
@@ -374,34 +396,44 @@ def data_reduction(fileName):
         rawFile = fits.open(FILE_DIR+fileName)
         rawData = rawFile[0].data
         rawHdr = rawFile[0].header
-
+        
         if FAKE_STARS:
             synthetic_image = np.zeros([2200, 2750])
-            fakeData = add_fake_stars(synthetic_image, number=N_STARS, max_counts=MAX_COUNTS, sky_counts=SKY_LEVEL, gain=GAIN)
+            fakeData = add_fake_stars(synthetic_image, expTime, number=N_STARS, max_counts=MAX_COUNTS, sky_counts=SKY_LEVEL, gain=GAIN)
             rawData = rawData + fakeData
-
+        
         # bias file
         biasFile = fits.open(BIAS_FILE)
         biasData = biasFile[0].data
-
-        prcData = np.subtract(rawData,biasData)
-        #prcData = rawData
-
-        exp_check = pyguide_checking(prcData)
         
+        #prcData = np.subtract(rawData,biasData)
+        prcData = rawData
+
+        exp_check, DecExpTime = pyguide_checking(prcData)
+        newExpTime = 0
+        prcFileName = ''
+
         if exp_check:
             # save the processed image as a new FITS file
             # with the processed data and the same header
             prcFileName = 'prc'+fileName[3:]
             fits.writeto(FILE_DIR+prcFileName, prcData, rawHdr)
+        else:
+            print("Exposure unsuccessful, altering expTime and trying again")
+            if DecExpTime:
+                newExpTime = (1-EXP_TIME_FACTOR)*float(expTime)
+            else:
+                newExpTime = (1+EXP_TIME_FACTOR)*float(expTime)
 
         rawFile.close()
         biasFile.close()
 
-        return exp_check, prcFileName
+        return exp_check, prcFileName, newExpTime
     
     except:
-        return True, 'DATA REDUCTION FAILED'
+        e = sys.exc_info()[0]
+        print(repr(e))
+        return True, 'DATA REDUCTION FAILED', 0
 
 def single_image(coords, expType):
     """
@@ -438,7 +470,9 @@ def single_image(coords, expType):
         exp_check = True
         print(rDataF+rDataS)
 
-    while not exp_check:
+    tmpExpTime = expTime
+    expCount = 0
+    while not exp_check and expCount <= MAX_EXP_COUNT:
         # ensure the CCD hasn't entered an error state
         ccdTemp = check_CCD_temp()
         if ccdTemp < -40 or ccdTemp > 30:
@@ -446,7 +480,7 @@ def single_image(coords, expType):
 
         # BLOCKING: Nothing should be happening while an exposure occurs
         print('STARTING EXPOSURE...')	
-        fileName, rDataC = expose(expType, expTime)
+        fileName, rDataC = expose(expType, tmpExpTime)
         print('...DONE EXPOSURE: '+fileName)
 
         if 'BAD' in rDataC:
@@ -461,9 +495,16 @@ def single_image(coords, expType):
 
             # perform data reduction, search for stars, determine if exposure change is necessary
             if PROCESS_RAW:
-                exp_check, prc_fileName = data_reduction(fileName)
+                print("Processing raw image...")
+                exp_check, prc_fileName, tmpExpTime = data_reduction(fileName, tmpExpTime)
+                print("...done processing")
             else:
                 exp_check = True
+
+            expCount+=1
+            if not exp_check and expCount <= MAX_EXP_COUNT:
+                print("Retrying exposure at "+str(tmpExpTime)+"s")
+                
 
 def step_thru_focus(coords, expType, focusOffset, focusNum):
     """
