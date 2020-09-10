@@ -102,7 +102,7 @@ def connect_to_wheel():
         print("Searching for device...")
 
     print("Found device")
-     
+    time.sleep(0.5)
     # connect to the filter wheel device
     filter_connect=device_filter.getSwitch("CONNECTION")
     while not(filter_connect):
