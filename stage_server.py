@@ -531,7 +531,7 @@ def handle_command(log, writer, data):
         response = 'BAD: Invalid Command'
     
     log.info('RESPONSE: '+response)
-    writer.write((response+'\n-------------------------------------------------------\n').encode('utf-8'))
+    writer.write((response+'\n').encode('utf-8'))
     # wait for all activity to cease. handle_command() is called as a new thread
     # so this will not cause blocking 
     time.sleep(1.5)
@@ -543,6 +543,7 @@ def handle_command(log, writer, data):
 
     # tell the client the result of their command & log it
     log.info('RESPONSE: DONE')
+    writer.write(('DONE\n').encode('utf-8'))
 
 # async client handler, for multiple connections
 async def handle_client(reader, writer):
@@ -582,8 +583,8 @@ async def handle_client(reader, writer):
             response = response + '\n' + busyState + '\n' + all_status
 
             # send current status to open connection & log it
-            log.info('RESPONSE: '+response)
-            writer.write((response+'\n-------------------------------------------------------\n').encode('utf-8'))
+            #log.info('RESPONSE: '+response)
+            writer.write((response+'\nDONE\n').encode('utf-8'))
             
         elif 'stop' in dataDec.lower():
             busyState = 'IDLE'
@@ -610,7 +611,7 @@ async def handle_client(reader, writer):
 
             # send current status to open connection & log it
             log.info('RESPONSE: '+response)
-            writer.write((response+'\n-------------------------------------------------------\n').encode('utf-8'))
+            writer.write((response+'\nDONE\n').encode('utf-8'))
 
         else:
             # handler for all other commands besides status & stop

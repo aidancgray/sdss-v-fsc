@@ -16,6 +16,7 @@ import logging
 import subprocess
 import numpy as np
 from astropy.io import fits
+from datetime import datetime
 
 class IndiClient(PyIndi.BaseClient):
     def __init__(self):
@@ -211,7 +212,13 @@ def handle_command(log, writer, data):
         
     # tell the client the result of their command & log it
     log.info('RESPONSE: '+response)
-    writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
+    writer.write((response+'\n').encode('utf-8'))
+    
+    time.sleep(0.1)
+    while slotState():
+        time.sleep(0.1)
+    
+    writer.write(('DONE\n').encode('utf-8'))
 
 # async client handler, for multiple connections
 async def handle_client(reader, writer):
@@ -251,8 +258,8 @@ async def handle_client(reader, writer):
                 '\nSLOT NAME: '+str(filter_name[int(filter_slot[0].value)-1].text)
 
             # send current status to open connection & log it
-            log.info('RESPONSE: '+response)
-            writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
+            #log.info('RESPONSE: '+response)
+            writer.write((response+'\nDONE\n').encode('utf-8'))
         else:
             # check if the command thread is running, may fail if not created yet, hence try/except
             try:
@@ -260,7 +267,7 @@ async def handle_client(reader, writer):
                     response = 'BAD: BUSY'
                     # send current status to open connection & log it
                     log.info('RESPONSE: '+response)
-                    writer.write((response+'\n').encode('utf-8'))
+                    writer.write((response+'\nDONE\n').encode('utf-8'))
                 else:
                     # create a new thread for the command
                     comThread = threading.Thread(target=handle_command, args=(log, writer, dataDec,))
@@ -279,7 +286,7 @@ async def main(HOST, PORT):
     await server.serve_forever()
     
 if __name__ == "__main__":
-    fileDir = os.path.expanduser('~')+'/Pictures/'    
+    fileDir = os.path.expanduser('~')+'/Pictures/'+datetime.now().strftime("%m-%d-%Y")+'/'
     log = log_start()
     
     # connect to the local indiserver

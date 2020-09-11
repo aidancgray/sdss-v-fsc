@@ -23,6 +23,7 @@ import csv
 import numpy as np
 import subprocess
 import PyGuide
+import random
 
 #### Switch to process raw images or not #############
 PROCESS_RAW = True
@@ -287,7 +288,7 @@ def add_fake_stars(image, expTime, number=N_STARS, max_counts=MAX_COUNTS, sky_co
     sky_im = np.random.poisson(sky_counts * gain, size=image.shape) / gain
 
     #flux_range = [max_counts/10, max_counts] # this the range for brightness, flux or counts
-    flux_range = [float(expTime) * (max_counts/100), float(expTime) * (max_counts/10)]
+    flux_range = [float(expTime) * (max_counts/10), float(expTime) * (max_counts/1)]
 
     y_max, x_max = image.shape
     xmean_range = [0.1 * x_max, 0.9 * x_max] # this is where on the chip they land
@@ -301,8 +302,10 @@ def add_fake_stars(image, expTime, number=N_STARS, max_counts=MAX_COUNTS, sky_co
                   ('y_stddev', ystddev_range),
                   ('theta', [0, 2*np.pi])])
 
+    randInt = random.randint(11111,99999)
+
     sources = make_random_gaussians_table(number, params,
-                                          random_state=11111)
+                                          random_state=randInt)
     star_im = make_gaussian_sources_image(image.shape, sources)
 
     fakeData = image + sky_im + star_im
@@ -345,7 +348,7 @@ def pyguide_checking(imgArray):
         if not shapeData.isOK:
             print("starShape failed: %s" % (shapeData.msgStr,))
         else:
-            print("xyCenter=[%.2f, %.2f] star ampl(amplitude of fit gaussian, peak counts)=%.1f, fwhm(width of Gaussian, focus)=%.1f, bkgnd=%.1f, chiSq=%.2f" %\
+            print("xyCenter=[%.2f, %.2f] CCD Pixel Counts=%.1f, FWHM=%.1f, BKGND=%.1f, chiSq=%.2f" %\
                 (centroid.xyCtr[0], centroid.xyCtr[1], shapeData.ampl,shapeData.fwhm, shapeData.bkgnd, shapeData.chiSq))
             if shapeData.ampl < 0.2*MAX_COUNTS:
                 lowTargets+=1
@@ -367,13 +370,16 @@ def pyguide_checking(imgArray):
     ### highlight detections
     ### size of green circle scales with total counts
     ### bigger circles for brigher stars
+    plt.clf()
     plt.imshow(imgArray, cmap="gray", vmin=200, vmax=MAX_COUNTS) # vmin/vmax help with contrast
+    plt.ion()
+    plt.show()
     for centroid in centroidData:
         xyCtr = centroid.xyCtr + np.array([-0.5, -0.5]) # offset by half a pixel to match imshow with 0,0 at pixel center rather than edge
         counts = centroid.counts
         plt.scatter(xyCtr[0], xyCtr[1], s=counts/MAX_COUNTS, marker="o", edgecolors="lime", facecolors="none")
-    plt.show()
-    plt.close()
+    plt.draw()
+    plt.pause(0.1)
 
     # Successful exposure, return True. The False is thrown away
     return True, False
@@ -431,8 +437,8 @@ def data_reduction(fileName, expTime):
         return exp_check, prcFileName, newExpTime
     
     except:
-        e = sys.exc_info()[0]
-        print(repr(e))
+        print("ERR: "+repr(sys.exc_info()[0])+" "+repr(sys.exc_info()[1])+" "+repr(sys.exc_info()[2]))
+        
         return True, 'DATA REDUCTION FAILED', 0
 
 def single_image(coords, expType):
@@ -495,7 +501,7 @@ def single_image(coords, expType):
 
             # perform data reduction, search for stars, determine if exposure change is necessary
             if PROCESS_RAW:
-                print("Processing raw image...")
+                print("Processing raw image. This may take a moment...")
                 exp_check, prc_fileName, tmpExpTime = data_reduction(fileName, tmpExpTime)
                 print("...done processing")
             else:

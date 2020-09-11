@@ -56,7 +56,12 @@ def on_created(event):
 if __name__ == "__main__":
     path = sys.argv[1]
     log = log_start()
-    d = pyds9.DS9()
+    try:
+        d = pyds9.DS9()
+    except:
+        print(repr(sys.exc_info()[0])+' '+repr(sys.exc_info()[1])+' '+repr(sys.exc_info()[2]))
+        #d = pyds9.DS9()
+
     d.set("cmap "+CMAP)
 
     if SHOW_RAW and SHOW_PRC:

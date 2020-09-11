@@ -447,7 +447,8 @@ def handle_command(log, writer, data):
         
     # tell the client the result of their command & log it
     log.info('RESPONSE: '+response)
-    writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
+    #writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
+    writer.write((response+'\nDONE\n').encode('utf-8'))
 
 async def handle_client(reader, writer):
     """
@@ -504,8 +505,9 @@ async def handle_client(reader, writer):
                 '\nLAST IMAGE: '+str(imgName)
 
             # send current status to open connection & log it
-            log.info('RESPONSE: '+response)
-            writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
+            #log.info('RESPONSE: '+response)
+            #writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
+            writer.write((response+'\nDONE\n').encode('utf-8'))
             
         elif 'stop' in dataDec.lower():
             # check if the command thread is running
@@ -523,8 +525,9 @@ async def handle_client(reader, writer):
 
             # send current status to open connection & log it
             log.info('RESPONSE: '+response)
-            writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
-        
+            #writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
+            writer.write((response+'\nDONE\n').encode('utf-8'))
+
         else:
             # check if the command thread is running, may fail if not created yet, hence try/except
             try:
@@ -532,7 +535,7 @@ async def handle_client(reader, writer):
                     response = 'BAD: busy'
                     # send current status to open connection & log it
                     log.info('RESPONSE: '+response)
-                    writer.write((response+'\n').encode('utf-8'))
+                    writer.write((response+'\nDONE\n').encode('utf-8'))
                 else:
                     # create a new thread for the command
                     comThread = threading.Thread(target=handle_command, args=(log, writer, dataDec,))
