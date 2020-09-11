@@ -11,4 +11,5 @@ sleep 2
 nohup ./stage_server.py >/dev/null 2>&1 &
 nohup ./trius_cam_server.py >/dev/null 2>&1 &
 nohup ./sx_filter_server.py >/dev/null 2>&1 &
+sleep 3
 echo "~servers are ready~"
