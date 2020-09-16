@@ -211,7 +211,7 @@ def handle_command(log, writer, data):
         response = 'BAD: Invalid Command'
         
     # tell the client the result of their command & log it
-    log.info('RESPONSE: '+response)
+    log.info('RESPONSE = '+response)
     writer.write((response+'\n').encode('utf-8'))
     
     time.sleep(0.1)
@@ -238,8 +238,8 @@ async def handle_client(reader, writer):
     while request != 'quit':        
         request = (await reader.read(255)).decode('utf8')
         print(request.encode('utf8'))
-        log.info('COMMAND: '+request)
-        writer.write(('COMMAND: '+request.upper()).encode('utf8'))    
+        log.info('COMMAND = '+request)
+        writer.write(('COMMAND = '+request.upper()).encode('utf8'))    
 
         response = 'BAD'
         # check if data is empty, a status query, or potential command
@@ -254,8 +254,8 @@ async def handle_client(reader, writer):
                 response = response + '\nIDLE'
 
             response = response+\
-                '\nSLOT #: '+str(filter_slot[0].value)+\
-                '\nSLOT NAME: '+str(filter_name[int(filter_slot[0].value)-1].text)
+                '\nSLOT # = '+str(filter_slot[0].value)+\
+                '\nSLOT NAME = '+str(filter_name[int(filter_slot[0].value)-1].text)
 
             # send current status to open connection & log it
             #log.info('RESPONSE: '+response)
@@ -266,7 +266,7 @@ async def handle_client(reader, writer):
                 if slotState():
                     response = 'BAD: BUSY'
                     # send current status to open connection & log it
-                    log.info('RESPONSE: '+response)
+                    log.info('RESPONSE = '+response)
                     writer.write((response+'\nDONE\n').encode('utf-8'))
                 else:
                     # create a new thread for the command

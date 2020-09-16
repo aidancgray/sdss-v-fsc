@@ -25,7 +25,7 @@ import subprocess
 import PyGuide
 import random
 
-#### Switch to process raw images or not #############
+#### Process Raw Images ##############################
 PROCESS_RAW = True
 BIAS_FILE = 'bias.fits'
 FAKE_STARS = True
@@ -45,7 +45,7 @@ T_CONST = float(25.9/3600)
 Z_CONST = 0.0000625
 ######################################################
 
-############### SIMULATED PARAMETERS #################
+#### Simulated Star Parameters #######################
 N_STARS = 10
 SKY_LEVEL = 20 # brightness of night sky
 MAX_COUNTS = 17000
@@ -250,9 +250,9 @@ def get_position_enc():
     rData = send_data_tcp(9997, 'status')
 
     # extract the encoder coders
-    r_pos = rData[rData.find('r_e: ')+5:rData.find('\n\u03B8_e')]
-    t_pos = rData[rData.find('\u03B8_e: ')+5:rData.find('\nz_e')]
-    z_pos = rData[rData.find('z_e: ')+5:rData.find('\nSpeeds')]
+    r_pos = rData[rData.find('r_e = ')+6:rData.find('\n\u03B8_e')]
+    t_pos = rData[rData.find('\u03B8_e = ')+6:rData.find('\nz_e')]
+    z_pos = rData[rData.find('z_e = ')+6:rData.find('\nr_s')]
 
     # convert to mm/deg/mm
     r_pos = float(r_pos)*R_CONST
@@ -266,7 +266,7 @@ def check_CCD_temp():
     Returns the current temperature of the CCD
     """
     rData = send_data_tcp(9999, 'status')
-    ccdTemp = float(rData[rData.find('CCD TEMP: ')+10:rData.find('C\nLAST')])
+    ccdTemp = float(rData[rData.find('CCD TEMP = ')+11:rData.find('C\nLAST')])
     return ccdTemp
 
 def add_fake_stars(image, expTime, number=N_STARS, max_counts=MAX_COUNTS, sky_counts=SKY_LEVEL, gain=GAIN):

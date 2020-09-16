@@ -426,7 +426,7 @@ def handle_command(log, writer, data):
                         if float(expTime) > 0:                    
                             expTime = float(expTime)
                             fileName = exposure(expType, expTime)
-                            response = 'OK\n'+'FILENAME: '+fileName
+                            response = 'OK\n'+'FILENAME = '+fileName
                         else:
                             response = 'BAD: Invalid Exposure Time'
                     except ValueError:
@@ -446,7 +446,7 @@ def handle_command(log, writer, data):
         response = 'BAD: Invalid Command'
         
     # tell the client the result of their command & log it
-    log.info('RESPONSE: '+response)
+    log.info('RESPONSE = '+response)
     #writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
     writer.write((response+'\nDONE\n').encode('utf-8'))
 
@@ -469,8 +469,8 @@ async def handle_client(reader, writer):
     while request != 'quit':        
         request = (await reader.read(255)).decode('utf8')
         print(request.encode('utf8'))
-        log.info('COMMAND: '+request)
-        writer.write(('COMMAND: '+request.upper()+'\n').encode('utf8'))    
+        log.info('COMMAND = '+request)
+        writer.write(('COMMAND = '+request.upper()+'\n').encode('utf8'))    
 
         response = 'BAD'
         # check if data is empty, a status query, or potential command
@@ -498,11 +498,11 @@ async def handle_client(reader, writer):
                 frameType = 'FLAT'
 
             response = response+\
-                '\nBIN MODE: '+str(ccd_bin[0].value)+'x'+str(ccd_bin[1].value)+\
-                '\nCCD TEMP: '+str(ccd_temp[0].value)+\
-                'C\nLAST FRAME TYPE: '+str(frameType)+\
-                '\nFILE DIR: '+str(fileDir)+\
-                '\nLAST IMAGE: '+str(imgName)
+                '\nBIN MODE = '+str(ccd_bin[0].value)+'x'+str(ccd_bin[1].value)+\
+                '\nCCD TEMP = '+str(ccd_temp[0].value)+\
+                'C\nLAST FRAME TYPE = '+str(frameType)+\
+                '\nFILE DIR = '+str(fileDir)+\
+                '\nLAST IMAGE = '+str(imgName)
 
             # send current status to open connection & log it
             #log.info('RESPONSE: '+response)
@@ -524,7 +524,7 @@ async def handle_client(reader, writer):
                 response = 'OK: idle'
 
             # send current status to open connection & log it
-            log.info('RESPONSE: '+response)
+            log.info('RESPONSE = '+response)
             #writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
             writer.write((response+'\nDONE\n').encode('utf-8'))
 
@@ -534,7 +534,7 @@ async def handle_client(reader, writer):
                 if comThread.is_alive():
                     response = 'BAD: busy'
                     # send current status to open connection & log it
-                    log.info('RESPONSE: '+response)
+                    log.info('RESPONSE = '+response)
                     writer.write((response+'\nDONE\n').encode('utf-8'))
                 else:
                     # create a new thread for the command

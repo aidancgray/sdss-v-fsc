@@ -124,14 +124,17 @@ def get_status(lib, open_devs):
         z_move_state = get_move_status(lib, open_devs[2])
 
         if response == 'OK':
-            all_status = "\nr: "+str(round(all_pos[0][0],4))+" mm "+r_move_state+"\
-                        \n\u03B8: "+str(round(all_pos[1][0],4))+" deg "+t_move_state+"\
-                        \nz: "+str(round(all_pos[2][0],4))+" mm "+z_move_state+"\
-                        \nEncoder Counts:\
-                        \nr_e: "+str(all_pos[0][1])+"\
-                        \n\u03B8_e: "+str(all_pos[1][1])+"\
-                        \nz_e: "+str(all_pos[2][1])+"\
-                        \nSpeeds: "+str(round(r_speed,4))+" mm/s : "+str(round(t_speed,4))+" deg/s : "+str(round(z_speed,4))+" mm/s"
+            all_status = "\nr = "+str(round(all_pos[0][0],4))+" mm "+r_move_state+"\
+                        \n\u03B8 = "+str(round(all_pos[1][0],4))+" deg "+t_move_state+"\
+                        \nz = "+str(round(all_pos[2][0],4))+" mm "+z_move_state+"\
+                        \n\
+                        \nr_e = "+str(all_pos[0][1])+"\
+                        \n\u03B8_e = "+str(all_pos[1][1])+"\
+                        \nz_e = "+str(all_pos[2][1])+"\
+                        \n\
+                        \nr_s = "+str(round(r_speed,4))+" mm/s"+"\
+                        \n\u03B8_s = "+str(round(t_speed,4))+" deg/s"+"\
+                        \nz_s = "+str(round(z_speed,4))+" mm/s"
     else:
         response = 'BAD: get_status() failed'
     return response, all_status
@@ -412,7 +415,7 @@ def handle_command(log, writer, data):
                 elif axis[:2] == 'z=' and get_move_status(lib, open_devs[2]) == 'IDLE':
                     try:
                         # offset z axis
-                        z_cur_position = get_step_position(lib, open_devs[0])
+                        z_cur_position = get_step_position(lib, open_devs[2])
                         z_offset = float(axis[2:]) / Z_CONST
                         response_z = move(lib, open_devs[2], z_cur_position + z_offset)
 
@@ -518,6 +521,30 @@ def handle_command(log, writer, data):
 
                 else:
                     response = 'BAD: Invalid set speed command' 
+        
+        # set zero
+        elif commandList[0] == 'zero' and len(commandList) > 1:
+            # set the given axes to zero
+            for axis in commandList[1:]:
+                if axis[:2] == 'r':
+                    try:
+                        response_r = set_zero(lib, open_devs[0])
+                    except:
+                        response_r = 'BAD: Zero R failed'
+                
+                elif axis[:2] == 't':
+                    try:
+                        response_t = set_zero(lib, open_devs[1])
+                    except:
+                        response_t = 'BAD: Zero T failed'
+
+                elif axis[:2] == 'z':
+                    try:
+                        response_z = set_zero(lib, open_devs[2])
+                    except:
+                        response_z = 'BAD: Zero Z failed'
+                else:
+                    response = 'BAD: Invalid axis to zero'
         else:
             response = 'BAD: Invalid Command'
 
@@ -530,7 +557,7 @@ def handle_command(log, writer, data):
     except IndexError:
         response = 'BAD: Invalid Command'
     
-    log.info('RESPONSE: '+response)
+    log.info('RESPONSE = '+response)
     writer.write((response+'\n').encode('utf-8'))
     # wait for all activity to cease. handle_command() is called as a new thread
     # so this will not cause blocking 
@@ -542,7 +569,7 @@ def handle_command(log, writer, data):
         time.sleep(0.1)
 
     # tell the client the result of their command & log it
-    log.info('RESPONSE: DONE')
+    log.info('RESPONSE = DONE')
     writer.write(('DONE\n').encode('utf-8'))
 
 # async client handler, for multiple connections
@@ -583,7 +610,7 @@ async def handle_client(reader, writer):
             response = response + '\n' + busyState + '\n' + all_status
 
             # send current status to open connection & log it
-            #log.info('RESPONSE: '+response)
+            #log.info('RESPONSE = '+response)
             writer.write((response+'\nDONE\n').encode('utf-8'))
             
         elif 'stop' in dataDec.lower():
@@ -610,7 +637,7 @@ async def handle_client(reader, writer):
                 response = 'OK: All stages IDLE'
 
             # send current status to open connection & log it
-            log.info('RESPONSE: '+response)
+            log.info('RESPONSE = '+response)
             writer.write((response+'\nDONE\n').encode('utf-8'))
 
         else:
