@@ -167,10 +167,10 @@ def display_images(fileDir):
         if p.poll() is None:
             p.kill()
         print("Image_Display script watching dir: "+fileDir)
-        return subprocess.Popen([sys.executable, 'image_display.py', fileDir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        return subprocess.Popen([sys.executable, 'tools/image_display.py', fileDir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     except:
         print("Image_Display script watching dir: "+fileDir)
-        return subprocess.Popen([sys.executable, 'image_display.py', fileDir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        return subprocess.Popen([sys.executable, 'tools/image_display.py', fileDir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 def expose(expType, expTime):
     """
