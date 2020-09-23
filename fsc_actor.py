@@ -37,6 +37,7 @@ MAX_EXP_COUNT = 3
 BIAS_LEVEL = 0 # subtraction done using bias image
 GAIN = 0.27 # e-/ADU
 READ_NOISE = 3.5 # e-
+MAX_COUNTS = 17000
 ######################################################
 
 #### Encoder<->mm/deg/mm Conversion ##################
@@ -48,7 +49,6 @@ Z_CONST = 0.0000625
 #### Simulated Star Parameters #######################
 N_STARS = 10
 SKY_LEVEL = 20 # brightness of night sky
-MAX_COUNTS = 17000
 ######################################################
 
 def show_image(imgData):
