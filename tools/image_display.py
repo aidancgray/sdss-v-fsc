@@ -29,7 +29,7 @@ def log_start():
     - log 	Object used to access write abilities
     """
 
-    scriptDir = os.path.dirname(os.path.abspath(__file__))
+    scriptDir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     scriptName = os.path.splitext(os.path.basename(__file__))[0]
     log = logging.getLogger('file-watch')
     hdlr = logging.FileHandler(scriptDir+'/logs/'+scriptName+'.log')
