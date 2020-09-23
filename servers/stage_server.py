@@ -31,7 +31,7 @@ def log_start():
     - log 	Object used to access write abilities
     """
 
-    scriptDir = os.path.dirname(os.path.abspath(__file__))
+    scriptDir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     scriptName = os.path.splitext(os.path.basename(__file__))[0]
     log = logging.getLogger('stage_server')
     hdlr = logging.FileHandler(scriptDir+'/logs/'+scriptName+'.log')
@@ -660,7 +660,7 @@ if __name__ == "__main__":
         import urllib.parse
 
     # Set the current directory and get the path to pyximc.py
-    cur_dir = os.path.abspath(os.path.dirname(__file__))
+    cur_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
     ximc_dir = os.path.join(cur_dir, "ximc-2.12.1/ximc")
     ximc_package_dir = os.path.join(ximc_dir, "crossplatform", "wrappers", "python")
     sys.path.append(ximc_package_dir)
