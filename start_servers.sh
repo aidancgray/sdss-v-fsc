@@ -8,8 +8,8 @@ sleep 1
 echo "...starting new servers"
 indiserver indi_sx_ccd indi_sx_wheel &
 sleep 2
-nohup ./stage_server.py >/dev/null 2>&1 &
-nohup ./trius_cam_server.py >/dev/null 2>&1 &
-nohup ./sx_filter_server.py >/dev/null 2>&1 &
+nohup ./servers/stage_server.py >/dev/null 2>&1 &
+nohup ./servers/trius_cam_server.py >/dev/null 2>&1 &
+nohup ./servers/sx_filter_server.py >/dev/null 2>&1 &
 sleep 3
 echo "~servers are ready~"
