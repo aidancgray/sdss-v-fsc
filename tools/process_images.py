@@ -13,6 +13,7 @@ import sys
 import numpy as np 
 import glob
 import PyGuide
+import csv
 
 # give script folder location and dataset name
 #   check if folder exists
@@ -23,6 +24,11 @@ import PyGuide
 #   create list [r,theta,z,counts,fwhm,filter]
 #   add array to dataList
 # when folder is complete, write dataList to csv file with given name
+
+#### Switches ########################################
+DISPLAY_TARGETS = False
+POLAR_OUTPUT = True
+######################################################
 
 #### Constants #######################################
 ZERO_PIXEL = [1375,1100] # center of 2750x2200
@@ -37,9 +43,17 @@ MAX_COUNTS = 17000
 ######################################################
 
 def write_to_csv(dataFile, dataList):
-    with open(..., 'w', newline='') as dataFile:
-         wr = csv.writer(dataFile, quoting=csv.QUOTE_ALL)
-         wr.writerow(dataList)
+    print("Writing data to "+dataFile)
+    with open(dataFile, 'w', newline='') as dF:
+        wr = csv.writer(dF, dialect='excel', delimiter = ',')
+        if POLAR_OUTPUT:
+            wr.writerow(['r','theta','z','filter','flux','counts','fwhm','bkgnd','chiSq'])
+        else:
+            wr.writerow(['x','y','z','filter','flux','counts','fwhm','bkgnd','chiSq'])
+
+        for imageData in dataList:
+            wr.writerows(imageData)
+    print("Done")
 
 def cart2polar(fp_coords):
     """
@@ -70,6 +84,7 @@ def cart2polar(fp_coords):
         else:
             t = np.arctan2(y,x)
 
+        t = np.rad2deg(t)
         polar_coords.append([r,t])
 
     return polar_coords
@@ -87,8 +102,8 @@ def convert_pixel_to_rtheta(xPixel, yPixel, rStage, tStage):
                        [0,      0,      1]]    
     
     # convert from Pixel coordinates to mm from ccd center
-    xPixCoord = (ZERO_PIXEL[0] - xPixel) * PIXEL_SIZE
-    yPixCoord = (ZERO_PIXEL[1] - yPixel) * PIXEL_SIZE
+    xPixCoord = (xPixel - ZERO_PIXEL[0]) * PIXEL_SIZE
+    yPixCoord = (yPixel - ZERO_PIXEL[1]) * PIXEL_SIZE
 
     ccdMatrix = [[xPixCoord],
                  [yPixCoord],
@@ -96,15 +111,16 @@ def convert_pixel_to_rtheta(xPixel, yPixel, rStage, tStage):
 
     trans_cart = np.dot(transformMatrix, ccdMatrix)
 
-    polar_coords = cart2polar([[trans_cart[0][0],trans_cart[1][0]]])
-    rVal = polar_coords[0][0]
-    thetaVal = polar_coords[0][1]
+    if POLAR_OUTPUT:
+        polar_coords = cart2polar([[trans_cart[0][0],trans_cart[1][0]]])
+        rVal = polar_coords[0][0]
+        thetaVal = polar_coords[0][1]
+        return rVal,thetaVal
+    else:
+        xTmp = trans_cart[0][0]
+        yTmp = trans_cart[1][0]
+        return xTmp, yTmp
 
-    print("Stage R: "+repr(rStage)+" T: "+repr(tStage))
-    print("CCD X: "+repr(xPixel)+" Y: "+repr(yPixel))
-    print("Pixel on Stage R: "+repr(rVal)+" T: "+repr(thetaVal))
-
-    return rVal,thetaVal
 
 def pyguide_checking(imgArray):
     """
@@ -157,17 +173,18 @@ def pyguide_checking(imgArray):
     ### highlight detections
     ### size of green circle scales with total counts
     ### bigger circles for brigher stars
-    plt.clf()
-    plt.imshow(imgArray, cmap="gray", vmin=200, vmax=MAX_COUNTS) # vmin/vmax help with contrast
-    plt.ion()
-    plt.show()
-    for centroid in centroidData:
-        xyCtr = centroid.xyCtr + np.array([-0.5, -0.5]) # offset by half a pixel to match imshow with 0,0 at pixel center rather than edge
-        counts = centroid.counts
-        plt.scatter(xyCtr[0], xyCtr[1], s=counts/MAX_COUNTS, marker="o", edgecolors="lime", facecolors="none")
-    plt.gca().invert_yaxis()
-    plt.draw()
-    plt.pause(0.1)
+    if DISPLAY_TARGETS:
+        plt.clf()
+        plt.imshow(imgArray, cmap="gray", vmin=200, vmax=MAX_COUNTS) # vmin/vmax help with contrast
+        plt.ion()
+        plt.show()
+        for centroid in centroidData:
+            xyCtr = centroid.xyCtr + np.array([-0.5, -0.5]) # offset by half a pixel to match imshow with 0,0 at pixel center rather than edge
+            counts = centroid.counts
+            plt.scatter(xyCtr[0], xyCtr[1], s=counts/MAX_COUNTS, marker="o", edgecolors="lime", facecolors="none")
+        plt.gca().invert_yaxis()
+        plt.draw()
+        plt.pause(0.1)
 
     # Successful exposure, return True. The False is thrown away
     return goodTargets
@@ -186,15 +203,18 @@ def single_image(fileName):
     rawData = rawFile[0].data
     rawHdr = rawFile[0].header
 
+    dataList = []
+
     rStage = rawHdr['R_POS']
     tStage = rawHdr['T_POS']
     zTarg = rawHdr['Z_POS']
     #filtTarg = rawHdr['FILTER']
     filtTarg = '1'
-
+    
     goodTargets = pyguide_checking(rawData)
 
     if len(goodTargets) > 0:
+        #dataList.append([fileName])
         for target in goodTargets:
             xPixel = target[0].xyCtr[0]
             yPixel = target[0].xyCtr[1]
@@ -240,8 +260,6 @@ if __name__ == "__main__":
     filePath = sys.argv[1]
     dataFile = sys.argv[2]
 
-    dataList = [] # list to hold target locations
-
     CCDInfo = PyGuide.CCDInfo(
         bias = BIAS_LEVEL,    # image bias, in ADU
         readNoise = READ_NOISE, # read noise, in e-
@@ -249,7 +267,11 @@ if __name__ == "__main__":
         )
 
     if filePath[len(filePath)-5:] == '.fits':
-        dataList = single_image(filePath)
+        dataListTemp = single_image(filePath)
+        dataList = []
+        dataList.append(dataListTemp)
+        write_to_csv(dataFile, dataList)
+
     else:
         if filePath[len(filePath)-1] != '/':
             filePath = filePath+'/'
@@ -259,6 +281,7 @@ if __name__ == "__main__":
             sys.exit()
         else:
             dataList = loop_thru_dir(filePath)
+            print(dataList)
             write_to_csv(dataFile, dataList)
 
     input("Press ENTER to exit")
