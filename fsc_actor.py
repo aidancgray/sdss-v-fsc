@@ -497,7 +497,7 @@ def single_image(coords, expType):
             enc_positions = get_position_enc()
 
             # update the fits header with the current position
-            resp = edit_fits(fileName, [['R_POS', enc_positions[0]], ['T_POS', enc_positions[1]], ['Z_POS', enc_positions[2]]])
+            resp = edit_fits(fileName, [['R_POS', enc_positions[0]], ['T_POS', enc_positions[1]], ['Z_POS', enc_positions[2]], ['FILTER', filt_slot]])
 
             # perform data reduction, search for stars, determine if exposure change is necessary
             if PROCESS_RAW:

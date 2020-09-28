@@ -10,7 +10,7 @@
 2. Startup the hardware servers (as background processes) with ```nohup ./[server.py] &```.
 3. Run the script to display new images with ```nohup ./image_display.py &```.
 
-Alternatively, run the bash script ```./fsc_servers.sh```.
+Alternatively, run the bash script ```./start_servers.sh```.
 
 ## How to connect to servers directly:
 - Simple testing can be done with ```telnet [IP Address of NUC] [PORT]```.
@@ -20,7 +20,7 @@ Alternatively, run the bash script ```./fsc_servers.sh```.
     - Stage Controller : 9997
 
 ## How to run the FSC Actor, which controls all servers given a specified list of coordinates:
-1. Startup all servers with ```./fsc_servers.sh```.
+1. Startup all servers with ```./start_servers.sh```.
 2. Run ```./fsc_actor.py```.
 3. Follow the on-screen prompts:
    1. Specify the desired image directory (or default).

@@ -15,14 +15,19 @@ import glob
 import PyGuide
 
 # give script folder location and dataset name
-#	check if folder exists
+#   check if folder exists
 # script goes through all files containing raw-########.fits
-# 	open fits as numpy array
-#	perform calibrations
-#	search for stars
-#	create list [r,theta,z,counts,fwhm]
-#	add array to dataList
+#   open fits as numpy array
+#   perform calibrations
+#   search for stars
+#   create list [r,theta,z,counts,fwhm,filter]
+#   add array to dataList
 # when folder is complete, write dataList to csv file with given name
+
+#### Constants #######################################
+ZERO_PIXEL = [1375,1100] # center of 2750x2200
+PIXEL_SIZE = 0.00454 # mm
+######################################################
 
 #### CCD Parameters for PyGuide init #################
 BIAS_LEVEL = 0 # subtraction done using bias image
@@ -32,9 +37,74 @@ MAX_COUNTS = 17000
 ######################################################
 
 def write_to_csv(dataFile, dataList):
-	with open(..., 'w', newline='') as dataFile:
-	     wr = csv.writer(dataFile, quoting=csv.QUOTE_ALL)
-	     wr.writerow(dataList)
+    with open(..., 'w', newline='') as dataFile:
+         wr = csv.writer(dataFile, quoting=csv.QUOTE_ALL)
+         wr.writerow(dataList)
+
+def cart2polar(fp_coords):
+    """
+    Takes a list of cartesian coordinates and converts them to polar coordinates.
+    This isn't normally used, but if the CSV file must contain cartesian coords,
+    this function may be implemented after reading in CSV.
+
+    Input:
+    - fp_coords     List of cartesian coordinates (+ exposure time + filter slot)
+
+    Output:
+    - polar_coords  List of polar coordinates (+ exposure time + filter slot)
+    """
+
+    polar_coords = []
+
+    for tCoords in fp_coords:
+        x = tCoords[0]
+        y = tCoords[1]
+
+        r = np.sqrt(x**2+y**2)
+        
+        # change this around depending on orientation on -scope
+        if x == 0:
+            t = 90
+        elif y == 0:
+            t = 0
+        else:
+            t = np.arctan2(y,x)
+
+        polar_coords.append([r,t])
+
+    return polar_coords
+
+def convert_pixel_to_rtheta(xPixel, yPixel, rStage, tStage):
+    tTemp = np.deg2rad(-1*tStage) #convert the stage's position(deg) to radians and change sign
+    tCos = np.cos(tTemp)
+    tSin = np.sin(tTemp)
+
+    xTemp = rStage * np.cos(np.deg2rad(90-tStage))
+    yTemp = rStage * np.sin(np.deg2rad(90-tStage))
+
+    transformMatrix = [[tCos,   -tSin,  xTemp],
+                       [tSin,   tCos,   yTemp],
+                       [0,      0,      1]]    
+    
+    # convert from Pixel coordinates to mm from ccd center
+    xPixCoord = (ZERO_PIXEL[0] - xPixel) * PIXEL_SIZE
+    yPixCoord = (ZERO_PIXEL[1] - yPixel) * PIXEL_SIZE
+
+    ccdMatrix = [[xPixCoord],
+                 [yPixCoord],
+                 [1]]
+
+    trans_cart = np.dot(transformMatrix, ccdMatrix)
+
+    polar_coords = cart2polar([[trans_cart[0][0],trans_cart[1][0]]])
+    rVal = polar_coords[0][0]
+    thetaVal = polar_coords[0][1]
+
+    print("Stage R: "+repr(rStage)+" T: "+repr(tStage))
+    print("CCD X: "+repr(xPixel)+" Y: "+repr(yPixel))
+    print("Pixel on Stage R: "+repr(rVal)+" T: "+repr(thetaVal))
+
+    return rVal,thetaVal
 
 def pyguide_checking(imgArray):
     """
@@ -83,13 +153,6 @@ def pyguide_checking(imgArray):
     print()
 
     print(str(len(goodTargets))+" targets are in the linear (20-90%) range --- "+str(lowTargets)+" low targets --- "+str(highTargets)+" high targets")
-    
-    # return False if there are no good stars found
-    if len(goodTargets) == 0:
-        if lowTargets < highTargets:
-            return False, True
-        else:
-            return False, False
 
     ### highlight detections
     ### size of green circle scales with total counts
@@ -102,53 +165,100 @@ def pyguide_checking(imgArray):
         xyCtr = centroid.xyCtr + np.array([-0.5, -0.5]) # offset by half a pixel to match imshow with 0,0 at pixel center rather than edge
         counts = centroid.counts
         plt.scatter(xyCtr[0], xyCtr[1], s=counts/MAX_COUNTS, marker="o", edgecolors="lime", facecolors="none")
+    plt.gca().invert_yaxis()
     plt.draw()
     plt.pause(0.1)
 
     # Successful exposure, return True. The False is thrown away
-    return True, False
+    return goodTargets
+
+def single_image(fileName):
+    """
+    Function to process a single raw FITS.
+
+    Input:
+    - fileName      Name of absolute path to the raw FITS file
+
+    Output:
+    - dataList      List of points & measurements: [[r_1,theta_1,z_1,filter_1,flux_1,counts_1,fwhm_1,bkgnd_1,chiSq_1]...]
+    """
+    rawFile = fits.open(fileName)
+    rawData = rawFile[0].data
+    rawHdr = rawFile[0].header
+
+    rStage = rawHdr['R_POS']
+    tStage = rawHdr['T_POS']
+    zTarg = rawHdr['Z_POS']
+    #filtTarg = rawHdr['FILTER']
+    filtTarg = '1'
+
+    goodTargets = pyguide_checking(rawData)
+
+    if len(goodTargets) > 0:
+        for target in goodTargets:
+            xPixel = target[0].xyCtr[0]
+            yPixel = target[0].xyCtr[1]
+
+            #convert xPixel,yPixel to r,t
+            rTarg, thetaTarg = convert_pixel_to_rtheta(xPixel, yPixel, rStage, tStage)
+
+            fluxTarg = target[0].counts
+            countsTarg = target[1].ampl
+            fwhmTarg = target[1].fwhm
+            bkgndTarg = target[1].bkgnd
+            chiSqTarg = target[1].chiSq
+
+            targetData = [rTarg, thetaTarg, zTarg, filtTarg, fluxTarg, countsTarg, fwhmTarg, bkgndTarg, chiSqTarg]
+            dataList.append(targetData)
+
+    return dataList
 
 def loop_thru_dir(filePath):
-	"""
-	Function to loop through given directory and open all raw FITS.
+    """
+    Function to loop through given directory and open all raw FITS.
 
-	Input:
-	- filePath		Name of the directory containing the raw FITS files
-	"""
-	directoryList = glob.glob(filePath+'raw-*')
-	directoryList.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
+    Input:
+    - filePath      Name of the directory containing the raw FITS files
 
-	print("Processing images in: "+filePath)
-	print("List of filenames: "+repr(directoryList))
-	for fileName in directoryList:
-		#print(fileName)
-		rawFile = fits.open(fileName)
-		rawData = rawFile[0].data
-		rawHdr = rawFile[0].header
+    Output:
+    - dataList      List of points & measurements: [[r_1,theta_1,z_1,counts_1,fwhm_1,filter_1]...[r_N,theta_N,z_N,counts_N,fwhm_N,filter_N]]
+    """
+    dataList = []
+    directoryList = glob.glob(filePath+'raw-*')
+    directoryList.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
 
-		exp_check, DecExpTime = pyguide_checking(rawData)
+    print("Processing images in: "+filePath)
+    #print("List of filenames: "+repr(directoryList))
+    
+    for fileName in directoryList:
+        dataListTemp = single_image(fileName)
+        dataList.append(dataListTemp)
 
+    return dataList
 
 if __name__ == "__main__":
-	filePath = sys.argv[1]
-	dataFile = sys.argv[2]
+    filePath = sys.argv[1]
+    dataFile = sys.argv[2]
 
-	dataList = [] # list to hold target locations
+    dataList = [] # list to hold target locations
 
-	CCDInfo = PyGuide.CCDInfo(
-		bias = BIAS_LEVEL,    # image bias, in ADU
-		readNoise = READ_NOISE, # read noise, in e-
-		ccdGain = GAIN,  # inverse ccd gain, in e-/ADU
-		)
+    CCDInfo = PyGuide.CCDInfo(
+        bias = BIAS_LEVEL,    # image bias, in ADU
+        readNoise = READ_NOISE, # read noise, in e-
+        ccdGain = GAIN,  # inverse ccd gain, in e-/ADU
+        )
 
-	if filePath[len(filePath)-1] != '/':
-		filePath = filePath+'/'
+    if filePath[len(filePath)-5:] == '.fits':
+        dataList = single_image(filePath)
+    else:
+        if filePath[len(filePath)-1] != '/':
+            filePath = filePath+'/'
 
-	if not os.path.exists(filePath):
-		print("ERROR: That file path does not exist.")
-		sys.exit()
+        if not os.path.exists(filePath):
+            print("ERROR: That file path does not exist.")
+            sys.exit()
+        else:
+            dataList = loop_thru_dir(filePath)
+            write_to_csv(dataFile, dataList)
 
-	loop_thru_dir(filePath)
-
-
-
+    input("Press ENTER to exit")
