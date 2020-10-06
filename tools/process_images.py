@@ -15,16 +15,6 @@ import glob
 import PyGuide
 import csv
 
-# give script folder location and dataset name
-#   check if folder exists
-# script goes through all files containing raw-########.fits
-#   open fits as numpy array
-#   perform calibrations
-#   search for stars
-#   create list [r,theta,z,counts,fwhm,filter]
-#   add array to dataList
-# when folder is complete, write dataList to csv file with given name
-
 #### Switches ########################################
 DISPLAY_TARGETS = False
 POLAR_OUTPUT = False
@@ -47,9 +37,9 @@ def write_to_csv(dataFile, dataList):
     with open(dataFile, 'w', newline='') as dF:
         wr = csv.writer(dF, dialect='excel', delimiter = ',')
         if POLAR_OUTPUT:
-            wr.writerow(['r','theta','z','filter','flux','counts','fwhm','bkgnd','chiSq'])
+            wr.writerow(['r','theta','z','expTime','filter','flux','counts','fwhm','bkgnd','chiSq'])
         else:
-            wr.writerow(['x','y','z','filter','flux','counts','fwhm','bkgnd','chiSq'])
+            wr.writerow(['x','y','z','expTime','filter','flux','counts','fwhm','bkgnd','chiSq'])
 
         for imageData in dataList:
             wr.writerows(imageData)
@@ -62,10 +52,10 @@ def cart2polar(fp_coords):
     this function may be implemented after reading in CSV.
 
     Input:
-    - fp_coords     List of cartesian coordinates (+ exposure time + filter slot)
+    - fp_coords     List of cartesian coordinates
 
     Output:
-    - polar_coords  List of polar coordinates (+ exposure time + filter slot)
+    - polar_coords  List of polar coordinates
     """
 
     polar_coords = []
@@ -197,7 +187,7 @@ def single_image(fileName):
     - fileName      Name of absolute path to the raw FITS file
 
     Output:
-    - dataList      List of points & measurements: [[r_1,theta_1,z_1,filter_1,flux_1,counts_1,fwhm_1,bkgnd_1,chiSq_1]...]
+    - dataList      List of coordinate points & data
     """
     rawFile = fits.open(fileName)
     rawData = rawFile[0].data
@@ -210,6 +200,7 @@ def single_image(fileName):
     zTarg = rawHdr['Z_POS']
     #filtTarg = rawHdr['FILTER']
     filtTarg = '1'
+    expTime = rawHdr['EXPTIME']
     
     goodTargets = pyguide_checking(rawData)
 
@@ -228,7 +219,7 @@ def single_image(fileName):
             bkgndTarg = target[1].bkgnd
             chiSqTarg = target[1].chiSq
 
-            targetData = [rTarg, thetaTarg, zTarg, filtTarg, fluxTarg, countsTarg, fwhmTarg, bkgndTarg, chiSqTarg]
+            targetData = [rTarg, thetaTarg, zTarg, expTime, filtTarg, fluxTarg, countsTarg, fwhmTarg, bkgndTarg, chiSqTarg]
             dataList.append(targetData)
 
     return dataList
@@ -241,7 +232,7 @@ def loop_thru_dir(filePath):
     - filePath      Name of the directory containing the raw FITS files
 
     Output:
-    - dataList      List of points & measurements: [[r_1,theta_1,z_1,counts_1,fwhm_1,filter_1]...[r_N,theta_N,z_N,counts_N,fwhm_N,filter_N]]
+    - dataList      List of coordinate points & data
     """
     dataList = []
     directoryList = glob.glob(filePath+'raw-*')
