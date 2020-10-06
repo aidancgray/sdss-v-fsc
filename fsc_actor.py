@@ -399,6 +399,7 @@ def data_reduction(fileName, expTime):
 
     try:
         # raw file
+        #print(FILE_DIR+fileName)
         rawFile = fits.open(FILE_DIR+fileName)
         rawData = rawFile[0].data
         rawHdr = rawFile[0].header
@@ -409,7 +410,7 @@ def data_reduction(fileName, expTime):
             rawData = rawData + fakeData
         
         # bias file
-        biasFile = fits.open(BIAS_FILE)
+        biasFile = fits.open('./bias-set/'+BIAS_FILE)
         biasData = biasFile[0].data
         
         #prcData = np.subtract(rawData,biasData)

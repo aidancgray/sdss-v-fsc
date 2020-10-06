@@ -27,7 +27,7 @@ import csv
 
 #### Switches ########################################
 DISPLAY_TARGETS = False
-POLAR_OUTPUT = True
+POLAR_OUTPUT = False
 ######################################################
 
 #### Constants #######################################
