@@ -65,7 +65,13 @@ def create_3d_plot(dataList):
     plt.show()
 
 if __name__ == "__main__":
-    fileName = sys.argv[1]
+    #fileName = sys.argv[1]
+
+    fileName = input("Enter path to file (eg. ~/Pictures/SX_CCD): ")
+
+    if fileName[0] == '~':
+        fileName = os.path.expanduser('~')+fileName[1:]
+
     data = get_data(fileName)
     print("Number of data points = "+repr(len(data)))
     create_3d_plot(data)

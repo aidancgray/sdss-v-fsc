@@ -248,8 +248,20 @@ def loop_thru_dir(filePath):
     return dataList
 
 if __name__ == "__main__":
-    filePath = sys.argv[1]
-    dataFile = sys.argv[2]
+    #filePath = sys.argv[1]
+    #dataFile = sys.argv[2]
+
+    filePath = input("Enter path to file (eg. ~/Pictures/SX_CCD): ")
+    dataFile = input("Enter desired output file (eg. data.csv): ")
+
+    if filePath[0] == '~':
+        filePath = os.path.expanduser('~')+filePath[1:]
+
+    if dataFile[0] == '~':
+        dataFile = os.path.expanduser('~')+dataFile[1:]
+
+    #print(filePath)
+    #print(dataFile)
 
     CCDInfo = PyGuide.CCDInfo(
         bias = BIAS_LEVEL,    # image bias, in ADU
