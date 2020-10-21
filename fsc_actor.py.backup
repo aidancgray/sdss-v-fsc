@@ -27,7 +27,6 @@ import random
 
 #### Process Raw Images ##############################
 PROCESS_RAW = True
-PYGUIDE_CHECK = True
 BIAS_FILE = 'bias.fits'
 FAKE_STARS = False
 
@@ -418,16 +417,10 @@ def data_reduction(fileName, expTime):
         biasFile = fits.open('./bias-set/'+BIAS_FILE)
         biasData = biasFile[0].data
         
-        prcData = np.subtract(rawData,biasData)
-        #prcData = rawData
+        #prcData = np.subtract(rawData,biasData)
+        prcData = rawData
 
-        # Run PyGuide Check if the switch is on
-        # Otherwise assume exposure is ok
-        if PYGUIDE_CHECK:
-            exp_check, DecExpTime = pyguide_checking(prcData)
-        else:
-            exp_check = True
-
+        exp_check, DecExpTime = pyguide_checking(prcData)
         newExpTime = 0
         prcFileName = ''
 
@@ -469,24 +462,14 @@ def single_image(coords, expType):
     expTime = coords[3]
     filt_slot = coords[4]
 
-    moveCom = 'move'
-
-    if str(r_pos) != '':
-        moveCom = moveCom + ' r='+str(r_pos)
-    if str(t_pos) != '':
-        moveCom = moveCom + ' t='+str(t_pos)
-    if str(z_pos) != '':
-        moveCom = moveCom + ' z='+str(z_pos)
+    moveCom = 'move r='+str(r_pos)+' t='+str(t_pos)+' z='+str(z_pos)
 
     # BLOCKING: wait until all hardware is idle before moving to next position
     while check_all_status() == 'BUSY':
         time.sleep(0.1)	
 
-    if filt_slot != '':
-        rDataF = change_filter(filt_slot)
-
-    if len(moveCom) > 5:
-        rDataS = stage_command(moveCom)
+    rDataF = change_filter(filt_slot)
+    rDataS = stage_command(moveCom)
 
     # BLOCKING: wait until all hardware is idle before starting exposure routine
     while check_all_status() == 'BUSY':
