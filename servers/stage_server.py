@@ -661,7 +661,7 @@ if __name__ == "__main__":
 
     # Set the current directory and get the path to pyximc.py
     cur_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-    ximc_dir = os.path.join(cur_dir, "ximc-2.12.1/ximc")
+    ximc_dir = ("/gitrepos/sdss-v-fsc/ximc-2.12.1/ximc")
     ximc_package_dir = os.path.join(ximc_dir, "crossplatform", "wrappers", "python")
     sys.path.append(ximc_package_dir)
 
