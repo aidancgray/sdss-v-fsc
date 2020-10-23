@@ -343,6 +343,9 @@ def setParams(commandList):
                 global imgName
                 global fileDir
                 tempFileDir = i.replace('fileDir=','')
+
+                if tempFileDir[0] == '~':
+                    tempFileDir = os.path.expanduser('~')+tempFileDir[1:]
                 
                 if tempFileDir[len(tempFileDir)-1] != '/':
                     tempFileDir = tempFileDir+'/'
