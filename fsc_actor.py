@@ -26,8 +26,8 @@ import PyGuide
 import random
 
 #### Process Raw Images ##############################
-PROCESS_RAW = True
-PYGUIDE_CHECK = True
+PROCESS_RAW = False
+PYGUIDE_CHECK = False
 BIAS_FILE = 'bias.fits'
 FAKE_STARS = False
 
@@ -35,7 +35,7 @@ FAKE_STARS = False
 # Must be >0 and <1
 EXP_TIME_FACTOR = 0.5 
 
-MAX_EXP_COUNT = 3 # Maximum number of attempts to auto-adjust exposure time. 
+MAX_EXP_COUNT = 0 # Maximum number of attempts to auto-adjust exposure time. 
 ######################################################
 
 #### CCD Parameters for PyGuide init #################
@@ -437,7 +437,6 @@ def data_reduction(fileName, expTime):
             prcFileName = 'prc'+fileName[3:]
             fits.writeto(FILE_DIR+prcFileName, prcData, rawHdr)
         else:
-            print("Exposure unsuccessful, altering expTime and trying again")
             if DecExpTime:
                 newExpTime = (1-EXP_TIME_FACTOR)*float(expTime)
             else:
@@ -479,16 +478,22 @@ def single_image(coords, expType):
         moveCom = moveCom + ' z='+str(z_pos)
 
     # BLOCKING: wait until all hardware is idle before moving to next position
+    time.sleep(0.1)
     while check_all_status() == 'BUSY':
         time.sleep(0.1)	
 
     if filt_slot != '':
         rDataF = change_filter(filt_slot)
+    else:
+        rDataF = 'OK'
 
     if len(moveCom) > 5:
         rDataS = stage_command(moveCom)
+    else:
+        rDataS = 'OK'
 
     # BLOCKING: wait until all hardware is idle before starting exposure routine
+    time.sleep(0.1)
     while check_all_status() == 'BUSY':
         time.sleep(0.1)	
 
@@ -643,12 +648,17 @@ if __name__ == "__main__":
 
         userDir = input("Specify image directory or DEF for default: ")
 
+        if len(userDir) > 0:
+            if userDir[0] == '~':
+                userDir = os.path.expanduser('~')+userDir[1:]
+
         if 'DEF' in userDir.upper() or '' == userDir:
             send_data_tcp(9999, 'set fileDir='+FILE_DIR)
         elif os.path.isdir(userDir):
             if userDir[len(userDir)-1] != '/':
                 userDir = userDir+'/'
             FILE_DIR = userDir
+            send_data_tcp(9999, 'set fileDir='+FILE_DIR)
         else:
             print("Directory does not exist. An attempt will be made to create it.")
             if userDir[len(userDir)-1] != '/':
