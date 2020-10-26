@@ -11,9 +11,10 @@ import time
 import logging
 import sys
 import pyds9
+import os
 from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler
-from trius_cam_server import *
+#from trius_cam_server import *
 
 #### DS9 Image Display Parameters ####################
 CMAP = '3 0.1' # first number is the contrast, second is bias
@@ -47,7 +48,7 @@ def on_created(event):
     - event     The triggered event, containing the filename
     """
     global d
-    log.info(f"Created: {event.src_path}")
+    #log.info(f"Created: {event.src_path}")
     d.set("frame clear")
     d.set("file "+event.src_path)
     time.sleep(1)
@@ -55,7 +56,7 @@ def on_created(event):
         
 if __name__ == "__main__":
     path = sys.argv[1]
-    log = log_start()
+    #log = log_start()
     try:
         d = pyds9.DS9()
     except:
