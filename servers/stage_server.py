@@ -23,6 +23,15 @@ T_CONST = 0.144 # deg
 Z_CONST = 0.00125 # mm
 ######################################################
 
+#### Soft Stops ######################################
+R_SOFT_STOP_R = 307
+R_SOFT_STOP_L = 0
+T_SOFT_STOP_R = 180
+T_SOFT_STOP_L = -180
+Z_SOFT_STOP_R = 12.5
+Z_SOFT_STOP_L = -12.5
+######################################################
+
 def log_start():
     """
     Create a logfile that the rest of the script can write to.
@@ -361,8 +370,12 @@ def handle_command(log, writer, data):
                 if axis[:2] == 'r=' and get_move_status(lib, open_devs[0]) == 'IDLE':
                     try:
                         # move r axis
-                        r_move = float(axis[2:]) / R_CONST
-                        response_r = move(lib, open_devs[0], r_move)
+                        r_move_temp = float(axis[2:])
+                        if r_move_temp >= R_SOFT_STOP_L and r_move_temp <= R_SOFT_STOP_R:
+                            r_move = r_move_temp / R_CONST
+                            response_r = move(lib, open_devs[0], r_move)
+                        else:
+                            response_r = 'BAD: Outside of limits'
 
                     except ValueError:
                         response_r = 'BAD: Invalid move'
@@ -370,8 +383,12 @@ def handle_command(log, writer, data):
                 elif axis[:2] == 't=' and get_move_status(lib, open_devs[1]) == 'IDLE':
                     try:
                         # move theta axis
-                        t_move = float(axis[2:]) / T_CONST
-                        response_t = move(lib, open_devs[1], t_move)
+                        t_move_temp = float(axis[2:])
+                        if t_move_temp >= T_SOFT_STOP_L and t_move_temp <= T_SOFT_STOP_R:
+                            t_move = t_move_temp / T_CONST
+                            response_t = move(lib, open_devs[1], t_move)
+                        else:
+                            response_t = 'BAD: Outside of limits'
                         
                     except ValueError:
                         response_t = 'BAD: Invalid move'
@@ -379,8 +396,12 @@ def handle_command(log, writer, data):
                 elif axis[:2] == 'z=' and get_move_status(lib, open_devs[2]) == 'IDLE':
                     try:
                         # move z axis
-                        z_move = float(axis[2:]) / Z_CONST
-                        response_z = move(lib, open_devs[2], z_move)
+                        z_move_temp = float(axis[2:])
+                        if z_move_temp >= Z_SOFT_STOP_L and Z_move_temp <= Z_SOFT_STOP_R:
+                            z_move = z_move_temp / Z_CONST
+                            response_z = move(lib, open_devs[2], z_move)
+                        else:
+                            response_z = 'BAD: Outside of limits'
 
                     except ValueError:
                         response_z = 'BAD: Invalid move'
@@ -396,8 +417,14 @@ def handle_command(log, writer, data):
                     try:
                         # offset r axis
                         r_cur_position = get_step_position(lib, open_devs[0])
-                        r_offset = float(axis[2:]) / R_CONST
-                        response_r = move(lib, open_devs[0], r_cur_position + r_offset)
+                        r_cur_position_temp = r_cur_position * R_CONST
+                        r_offset_temp = float(axis[2:])
+                        #print('DEBUG: '+ repr(r_cur_position_temp + r_offset_temp))
+                        if (r_cur_position_temp + r_offset_temp) >= R_SOFT_STOP_L and (r_cur_position_temp + r_offset_temp) <= R_SOFT_STOP_R: 
+                            r_offset = r_offset_temp / R_CONST
+                            response_r = move(lib, open_devs[0], r_cur_position + r_offset)
+                        else:
+                            response_r = 'BAD: Outside of limits'
 
                     except ValueError:
                         response_r = 'BAD: Invalid offset'
@@ -406,8 +433,14 @@ def handle_command(log, writer, data):
                     try:
                         # offset theta axis
                         t_cur_position = get_step_position(lib, open_devs[1])
-                        t_offset = float(axis[2:]) / T_CONST
-                        response_t = move(lib, open_devs[1], t_cur_position + t_offset)
+                        t_cur_position_temp = t_cur_position * T_CONST
+                        t_offset_temp = float(axis[2:])
+                        
+                        if (t_cur_position_temp + t_offset_temp) >= T_SOFT_STOP_L and (t_cur_position_temp + t_offset_temp) <= T_SOFT_STOP_R: 
+                            t_offset = t_offset_temp / T_CONST
+                            response_t = move(lib, open_devs[1], t_cur_position + t_offset)
+                        else:
+                            response_t = 'BAD: Outside of limits'
                         
                     except ValueError:
                         response_t = 'BAD: Invalid offset'
@@ -416,8 +449,14 @@ def handle_command(log, writer, data):
                     try:
                         # offset z axis
                         z_cur_position = get_step_position(lib, open_devs[2])
-                        z_offset = float(axis[2:]) / Z_CONST
-                        response_z = move(lib, open_devs[2], z_cur_position + z_offset)
+                        z_cur_position_temp = z_cur_position * Z_CONST
+                        z_offset_temp = float(axis[2:])
+                        
+                        if (z_cur_position_temp + z_offset_temp) >= Z_SOFT_STOP_L and (z_cur_position_temp + z_offset_temp) <= Z_SOFT_STOP_R: 
+                            z_offset = z_offset_temp / Z_CONST
+                            response_z = move(lib, open_devs[2], z_cur_position + z_offset)
+                        else:
+                            response_z = 'BAD: Outside of limits'
 
                     except ValueError:
                         response_z = 'BAD: Invalid offset'
