@@ -671,7 +671,7 @@ if __name__ == "__main__":
 
         # Select the measurement method to use
         while methodLoop:
-            method = input("Specify measurement method\n(0) Single Image\n(1) Passive Scanning\n(2) Single Target Chasing\n(3) Multi-Target\n..: ")
+            method = input("Specify measurement method\n(0) Single Image\n(1) Passive Scanning\n(2) Single Target Chasing (AUTO)\n(3) Multi-Target\n..: ")
 
             if '0' in method:
                 singleImageLoop = True
