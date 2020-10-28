@@ -397,7 +397,7 @@ def handle_command(log, writer, data):
                     try:
                         # move z axis
                         z_move_temp = float(axis[2:])
-                        if z_move_temp >= Z_SOFT_STOP_L and Z_move_temp <= Z_SOFT_STOP_R:
+                        if z_move_temp >= Z_SOFT_STOP_L and z_move_temp <= Z_SOFT_STOP_R:
                             z_move = z_move_temp / Z_CONST
                             response_z = move(lib, open_devs[2], z_move)
                         else:
