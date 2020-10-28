@@ -65,6 +65,7 @@ def cancel():
     """
 
     print("Stopping routine and all hardware")
+
     send_data_tcp(9999, 'stop')
     send_data_tcp(9997, 'stop')
     print('Done')
