@@ -512,6 +512,7 @@ def single_image(coords, expType):
             sys.exit("Error with CCD, as noted by incorrect CCD Temp. Please disconnect and reconnect CCD power & data.")
 
         # BLOCKING: Nothing should be happening while an exposure occurs
+        time.sleep(2)
         print('STARTING EXPOSURE...')	
         fileName, rDataC = expose(expType, tmpExpTime)
         print('...DONE EXPOSURE: '+fileName)
