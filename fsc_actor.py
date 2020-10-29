@@ -28,7 +28,7 @@ import random
 #### Process Raw Images ##############################
 PROCESS_RAW = False
 PYGUIDE_CHECK = False
-BIAS_FILE = 'bias.fits'
+BIAS_FILE = './bias-set/avg_bias_-10.fits'
 FAKE_STARS = False
 
 # Inc or Dec exposure time by this factor if no good stars are found. 
