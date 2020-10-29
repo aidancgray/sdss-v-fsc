@@ -18,6 +18,10 @@ import csv
 #### Switches ########################################
 DISPLAY_TARGETS = False
 POLAR_OUTPUT = False
+SUBTRACT_BIAS = False
+SUBTRACT_DARK = False
+BIAS_FILE = './bias-set/avg_bias_-10.fits'
+DARK_FILE = ''
 ######################################################
 
 #### Constants #######################################
