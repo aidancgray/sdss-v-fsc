@@ -3,3 +3,4 @@ __pycache__
 logs
 .vscode/settings.json
 nohup.out
+.DS_Store
