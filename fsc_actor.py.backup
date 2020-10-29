@@ -26,15 +26,16 @@ import PyGuide
 import random
 
 #### Process Raw Images ##############################
-PROCESS_RAW = True
-BIAS_FILE = 'bias.fits'
+PROCESS_RAW = False
+PYGUIDE_CHECK = False
+BIAS_FILE = './bias-set/avg_bias_-10.fits'
 FAKE_STARS = False
 
 # Inc or Dec exposure time by this factor if no good stars are found. 
 # Must be >0 and <1
 EXP_TIME_FACTOR = 0.5 
 
-MAX_EXP_COUNT = 3 # Maximum number of attempts to auto-adjust exposure time. 
+MAX_EXP_COUNT = 0 # Maximum number of attempts to auto-adjust exposure time. 
 ######################################################
 
 #### CCD Parameters for PyGuide init #################
@@ -64,6 +65,7 @@ def cancel():
     """
 
     print("Stopping routine and all hardware")
+
     send_data_tcp(9999, 'stop')
     send_data_tcp(9997, 'stop')
     print('Done')
@@ -417,10 +419,16 @@ def data_reduction(fileName, expTime):
         biasFile = fits.open('./bias-set/'+BIAS_FILE)
         biasData = biasFile[0].data
         
-        #prcData = np.subtract(rawData,biasData)
-        prcData = rawData
+        prcData = np.subtract(rawData,biasData)
+        #prcData = rawData
 
-        exp_check, DecExpTime = pyguide_checking(prcData)
+        # Run PyGuide Check if the switch is on
+        # Otherwise assume exposure is ok
+        if PYGUIDE_CHECK:
+            exp_check, DecExpTime = pyguide_checking(prcData)
+        else:
+            exp_check = True
+
         newExpTime = 0
         prcFileName = ''
 
@@ -430,7 +438,6 @@ def data_reduction(fileName, expTime):
             prcFileName = 'prc'+fileName[3:]
             fits.writeto(FILE_DIR+prcFileName, prcData, rawHdr)
         else:
-            print("Exposure unsuccessful, altering expTime and trying again")
             if DecExpTime:
                 newExpTime = (1-EXP_TIME_FACTOR)*float(expTime)
             else:
@@ -462,16 +469,32 @@ def single_image(coords, expType):
     expTime = coords[3]
     filt_slot = coords[4]
 
-    moveCom = 'move r='+str(r_pos)+' t='+str(t_pos)+' z='+str(z_pos)
+    moveCom = 'move'
+
+    if str(r_pos) != '':
+        moveCom = moveCom + ' r='+str(r_pos)
+    if str(t_pos) != '':
+        moveCom = moveCom + ' t='+str(t_pos)
+    if str(z_pos) != '':
+        moveCom = moveCom + ' z='+str(z_pos)
 
     # BLOCKING: wait until all hardware is idle before moving to next position
+    time.sleep(0.1)
     while check_all_status() == 'BUSY':
         time.sleep(0.1)	
 
-    rDataF = change_filter(filt_slot)
-    rDataS = stage_command(moveCom)
+    if filt_slot != '':
+        rDataF = change_filter(filt_slot)
+    else:
+        rDataF = 'OK'
+
+    if len(moveCom) > 5:
+        rDataS = stage_command(moveCom)
+    else:
+        rDataS = 'OK'
 
     # BLOCKING: wait until all hardware is idle before starting exposure routine
+    time.sleep(0.1)
     while check_all_status() == 'BUSY':
         time.sleep(0.1)	
 
@@ -490,6 +513,7 @@ def single_image(coords, expType):
             sys.exit("Error with CCD, as noted by incorrect CCD Temp. Please disconnect and reconnect CCD power & data.")
 
         # BLOCKING: Nothing should be happening while an exposure occurs
+        time.sleep(2)
         print('STARTING EXPOSURE...')	
         fileName, rDataC = expose(expType, tmpExpTime)
         print('...DONE EXPOSURE: '+fileName)
@@ -626,12 +650,17 @@ if __name__ == "__main__":
 
         userDir = input("Specify image directory or DEF for default: ")
 
+        if len(userDir) > 0:
+            if userDir[0] == '~':
+                userDir = os.path.expanduser('~')+userDir[1:]
+
         if 'DEF' in userDir.upper() or '' == userDir:
             send_data_tcp(9999, 'set fileDir='+FILE_DIR)
         elif os.path.isdir(userDir):
             if userDir[len(userDir)-1] != '/':
                 userDir = userDir+'/'
             FILE_DIR = userDir
+            send_data_tcp(9999, 'set fileDir='+FILE_DIR)
         else:
             print("Directory does not exist. An attempt will be made to create it.")
             if userDir[len(userDir)-1] != '/':
@@ -644,7 +673,7 @@ if __name__ == "__main__":
 
         # Select the measurement method to use
         while methodLoop:
-            method = input("Specify measurement method\n(0) Single Image\n(1) Passive Scanning\n(2) Single Target Chasing\n(3) Multi-Target\n..: ")
+            method = input("Specify measurement method\n(0) Single Image\n(1) Passive Scanning\n(2) Single Target Chasing (AUTO)\n(3) Multi-Target\n..: ")
 
             if '0' in method:
                 singleImageLoop = True
