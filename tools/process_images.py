@@ -20,7 +20,7 @@ DISPLAY_TARGETS = False
 POLAR_OUTPUT = False
 SUBTRACT_BIAS = False
 SUBTRACT_DARK = False
-BIAS_FILE = './bias-set/avg_bias_-10.fits'
+BIAS_FILE = 'avg_bias_-10.fits'
 DARK_FILE = ''
 ######################################################
 
@@ -202,11 +202,18 @@ def single_image(fileName):
     rStage = rawHdr['R_POS']
     tStage = rawHdr['T_POS']
     zTarg = rawHdr['Z_POS']
-    #filtTarg = rawHdr['FILTER']
-    filtTarg = '1'
+    filtTarg = rawHdr['FILTER']
+    #filtTarg = '1'
     expTime = rawHdr['EXPTIME']
     
-    goodTargets = pyguide_checking(rawData)
+    if SUBTRACT_BIAS:
+        biasFile = fits.open('../bias-set/'+BIAS_FILE)
+        biasData = biasFile[0].data
+        prcData = np.subtract(rawData,biasData)
+    else:
+        prcData = rawData
+
+    goodTargets = pyguide_checking(prcData)
 
     if len(goodTargets) > 0:
         #dataList.append([fileName])
