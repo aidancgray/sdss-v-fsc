@@ -42,7 +42,8 @@ MAX_EXP_COUNT = 0 # Maximum number of attempts to auto-adjust exposure time.
 BIAS_LEVEL = 0 # subtraction done using bias image
 GAIN = 0.27 # e-/ADU
 READ_NOISE = 3.5 # e-
-MAX_COUNTS = 17000
+MAX_COUNTS = 65536
+FULL_WELL = 17000
 ######################################################
 
 #### Encoder<->mm/deg/mm Conversion ##################

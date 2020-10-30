@@ -33,7 +33,8 @@ PIXEL_SIZE = 0.00454 # mm
 BIAS_LEVEL = 0 # subtraction done using bias image
 GAIN = 0.27 # e-/ADU
 READ_NOISE = 3.5 # e-
-MAX_COUNTS = 17000
+MAX_COUNTS = 65536
+FULL_WELL = 17000
 ######################################################
 
 def write_to_csv(dataFile, dataList):
