@@ -36,12 +36,12 @@ def create_2d_plot(dataList, fit_x, fit_y, fit_x_min, fit_y_min):
 
     plt_0.set_label('data')
     plt_fit = plt.plot(fit_x,fit_y, label='polyfit')
-    fit_min_label = 'min='+repr(fit_x_min)
+    fit_min_label = 'min='+repr('{:.4f}'.format(fit_x_min))
     plt_min = ax.scatter(fit_x_min, fit_y_min, c='r', marker='x', label=fit_min_label)
 
-    plt.title('fwhm vs z-stage (mm)')
-    ax.set_xlabel('z-stage (mm)')
-    ax.set_ylabel('fwhm (pixels)')
+    plt.title('FWHM vs Z-Stage (mm)')
+    ax.set_xlabel('Z-Ztage (mm)')
+    ax.set_ylabel('FWHM (pixels)')
     ax.grid(True, which='both', axis='both')
     ax.legend(loc=2, fontsize='small')
 
