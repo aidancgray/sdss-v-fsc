@@ -220,7 +220,8 @@ def change_filter(slotNum):
     """
 
     data = 'set slot='+str(slotNum)
-    rData = send_data_tcp(9998, data)
+    #rData = send_data_tcp(9998, data)
+    rData = 'OK'
     return rData
 
 def stage_command(data):
@@ -241,7 +242,7 @@ def check_all_status():
     Returns BUSY if ANY hardware is busy, IDLE otherwise
     """
     rData = send_data_tcp(9999, 'status')
-    rData = rData + send_data_tcp(9998, 'status')
+    #rData = rData + send_data_tcp(9998, 'status')
     rData = rData + send_data_tcp(9997, 'status')
     #print(rData)
     if 'BUSY' in rData:
@@ -525,7 +526,8 @@ def single_image(coords, expType):
         else:
             # get the encoder counts to obtain precise location
             enc_positions = get_position_enc()
-
+            filt_slot = 'ET365LP'
+            
             # update the fits header with the current position
             resp = edit_fits(fileName, [['R_POS', enc_positions[0]], ['T_POS', enc_positions[1]], ['Z_POS', enc_positions[2]], ['FILTER', filt_slot]])
 
@@ -636,7 +638,7 @@ if __name__ == "__main__":
         print("Checking connection to hardware...")
         try:
             send_data_tcp(9999, 'status')
-            send_data_tcp(9998, 'status')
+            #send_data_tcp(9998, 'status')
             send_data_tcp(9997, 'status')
         except ConnectionRefusedError as err:
             print("...FAILED. Check hardware servers are running.")

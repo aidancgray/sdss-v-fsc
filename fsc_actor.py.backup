@@ -28,7 +28,7 @@ import random
 #### Process Raw Images ##############################
 PROCESS_RAW = False
 PYGUIDE_CHECK = False
-BIAS_FILE = './bias-set/avg_bias_-10.fits'
+BIAS_FILE = 'avg_bias_-10.fits'
 FAKE_STARS = False
 
 # Inc or Dec exposure time by this factor if no good stars are found. 
@@ -42,7 +42,8 @@ MAX_EXP_COUNT = 0 # Maximum number of attempts to auto-adjust exposure time.
 BIAS_LEVEL = 0 # subtraction done using bias image
 GAIN = 0.27 # e-/ADU
 READ_NOISE = 3.5 # e-
-MAX_COUNTS = 17000
+MAX_COUNTS = 65536
+FULL_WELL = 17000
 ######################################################
 
 #### Encoder<->mm/deg/mm Conversion ##################
