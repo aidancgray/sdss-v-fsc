@@ -24,12 +24,12 @@ Z_CONST = 0.00125 # mm
 ######################################################
 
 #### Soft Stops ######################################
-R_SOFT_STOP_R = 305
-R_SOFT_STOP_L = 0
-T_SOFT_STOP_R = 180
-T_SOFT_STOP_L = -180
-Z_SOFT_STOP_R = 12.5
-Z_SOFT_STOP_L = -12.5
+R_SOFT_STOP_R = 305 #305
+R_SOFT_STOP_L = 0 #0
+T_SOFT_STOP_R = 180 #180
+T_SOFT_STOP_L = -180 #-180
+Z_SOFT_STOP_R = 12.5 #12.5
+Z_SOFT_STOP_L = -12.5 #-12.5
 ######################################################
 
 def log_start():
