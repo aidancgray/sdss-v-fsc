@@ -586,6 +586,7 @@ def go_to_fp_coords(polar_coords, expType, focusOffset, focusNum):
     for pos in polar_coords:
         # BLOCKING: wait until all hardware is idle before moving to next position
         # !!! FOR SINGLE TARGET CHASING: CHECK TELESCOPE MOVES HERE
+        time.sleep(0.1)
         while check_all_status() == 'BUSY':
             time.sleep(0.1)	
         
@@ -594,6 +595,7 @@ def go_to_fp_coords(polar_coords, expType, focusOffset, focusNum):
         single_image(pos, expType)
 
         # BLOCKING: wait until all hardware is idle before beginning focus sweep
+        time.sleep(0.1)
         while check_all_status() == 'BUSY':
             time.sleep(0.1)
     
@@ -692,10 +694,27 @@ if __name__ == "__main__":
                     else:
                         expTime = input("Enter exposure time (s): ")
 
+                    focusOffset = input("Focus sweep offset (mm): ")
+                    focusNum = input("Focus sweep #: ")
+
+                    if focusOffset == '':
+                        focusOffset = 0
+                    if focusNum == '':
+                        focusNum = 0
+
+                    try:
+                        float(focusOffset)
+                        int(focusNum)
+                    except ValueError:
+                        print("BAD: Offset must be float and sweep # must be int")
+                        continue
+
+                    go_to_fp_coords([[r_pos, t_pos, z_pos, expTime, filt_slot]], expType, focusOffset, focusNum)
+
                     # open image_display.py as a subprocess
                     #p = display_images(FILE_DIR)   
                     
-                    single_image([r_pos, t_pos, z_pos, expTime, filt_slot], expType)
+                    #single_image([r_pos, t_pos, z_pos, expTime, filt_slot], expType)
 
                     tdata = input("Again (enter key) or quit (q)? ")
 
