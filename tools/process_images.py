@@ -44,7 +44,7 @@ def write_to_csv(dataFile, dataList):
         wr = csv.writer(dF, dialect='excel', delimiter = ',')
         if POLAR_OUTPUT:
             wr.writerow(['r','theta','z','expTime','filter','flux','counts','fwhm','bkgnd','chiSq'])
-        else if PIXEL_OUTPUT:
+        elif PIXEL_OUTPUT:
             wr.writerow(['x-pix','y-pix','z','expTime','filter','flux','counts','fwhm','bkgnd','chiSq'])
         else:
             wr.writerow(['x','y','z','expTime','filter','flux','counts','fwhm','bkgnd','chiSq'])
@@ -236,7 +236,8 @@ def single_image(fileName):
                 rTarg, thetaTarg = convert_pixel_to_rtheta(xPixel, yPixel, rStage, tStage)
                 targetData = [rTarg, thetaTarg, zTarg, expTime, filtTarg, fluxTarg, countsTarg, fwhmTarg, bkgndTarg, chiSqTarg]
             else:
-                targetData = [xPixel, xPixel, zTarg, expTime, filtTarg, fluxTarg, countsTarg, fwhmTarg, bkgndTarg, chiSqTarg]
+                targetData = [xPixel, yPixel, zTarg, expTime, filtTarg, fluxTarg, countsTarg, fwhmTarg, bkgndTarg, chiSqTarg]
+
 
             dataList.append(targetData)
 
@@ -302,7 +303,7 @@ if __name__ == "__main__":
             sys.exit()
         else:
             dataList = loop_thru_dir(filePath)
-            print(dataList)
+            #print(dataList)
             write_to_csv(dataFile, dataList)
 
-    input("Press ENTER to exit")
+    #input("Press ENTER to exit")
