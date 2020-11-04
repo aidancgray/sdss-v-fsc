@@ -16,6 +16,7 @@ import PyGuide
 import csv
 
 #### Switches ########################################
+PIXEL_OUTPUT = True
 DISPLAY_TARGETS = False
 POLAR_OUTPUT = False
 SUBTRACT_BIAS = False
@@ -43,6 +44,8 @@ def write_to_csv(dataFile, dataList):
         wr = csv.writer(dF, dialect='excel', delimiter = ',')
         if POLAR_OUTPUT:
             wr.writerow(['r','theta','z','expTime','filter','flux','counts','fwhm','bkgnd','chiSq'])
+        else if PIXEL_OUTPUT:
+            wr.writerow(['x-pix','y-pix','z','expTime','filter','flux','counts','fwhm','bkgnd','chiSq'])
         else:
             wr.writerow(['x','y','z','expTime','filter','flux','counts','fwhm','bkgnd','chiSq'])
 
@@ -222,16 +225,19 @@ def single_image(fileName):
             xPixel = target[0].xyCtr[0]
             yPixel = target[0].xyCtr[1]
 
-            #convert xPixel,yPixel to r,t
-            rTarg, thetaTarg = convert_pixel_to_rtheta(xPixel, yPixel, rStage, tStage)
-
             fluxTarg = target[0].counts
             countsTarg = target[1].ampl
             fwhmTarg = target[1].fwhm
             bkgndTarg = target[1].bkgnd
             chiSqTarg = target[1].chiSq
 
-            targetData = [rTarg, thetaTarg, zTarg, expTime, filtTarg, fluxTarg, countsTarg, fwhmTarg, bkgndTarg, chiSqTarg]
+            #convert xPixel,yPixel to r,t
+            if not PIXEL_OUTPUT:
+                rTarg, thetaTarg = convert_pixel_to_rtheta(xPixel, yPixel, rStage, tStage)
+                targetData = [rTarg, thetaTarg, zTarg, expTime, filtTarg, fluxTarg, countsTarg, fwhmTarg, bkgndTarg, chiSqTarg]
+            else:
+                targetData = [xPixel, xPixel, zTarg, expTime, filtTarg, fluxTarg, countsTarg, fwhmTarg, bkgndTarg, chiSqTarg]
+
             dataList.append(targetData)
 
     return dataList

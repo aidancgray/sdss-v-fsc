@@ -13,6 +13,10 @@ import os
 import sys
 import csv
 
+#### CONSTANTS ###########
+CENTER_OFFSET = [0,0]
+##########################
+
 def get_data(fileName):
     """
     Reads in a CSV file containing coordinates, exposure time, and filter slot.
@@ -56,7 +60,10 @@ if __name__ == "__main__":
 
     xc, yc, r, mse = cf.least_squares_circle(xyData)
 
-    print("XCenter (mm from ccd center) = "+repr(xc))
-    print("YCenter (mm from ccd center) = "+repr(yc))
-    print("Radius (mm) = "+repr(r))
+    xc = xc + CENTER_OFFSET[0]
+    yc = yc + CENTER_OFFSET[1]
+
+    print("XCenter = "+repr(xc))
+    print("YCenter = "+repr(yc))
+    print("Radius  = "+repr(r))
     print("MSE = "+repr(mse))
