@@ -158,12 +158,13 @@ def pyguide_checking(imgArray):
         else:
             print("xyCenter=[%.2f, %.2f] CCD Pixel Counts=%.1f, FWHM=%.1f, BKGND=%.1f, chiSq=%.2f" %\
                 (centroid.xyCtr[0], centroid.xyCtr[1], shapeData.ampl,shapeData.fwhm, shapeData.bkgnd, shapeData.chiSq))
-            if shapeData.ampl < 0.2*MAX_COUNTS:
-                lowTargets+=1
-            elif shapeData.ampl > 0.9*MAX_COUNTS:
-                highTargets+=1
-            else:
-                goodTargets.append([centroid,shapeData])
+            #if shapeData.ampl < 0.2*MAX_COUNTS:
+            #    lowTargets+=1
+            #elif shapeData.ampl > 0.9*MAX_COUNTS:
+            #    highTargets+=1
+            #else:
+            #    goodTargets.append([centroid,shapeData])
+            goodTargets.append([centroid,shapeData])
     print()
 
     print(str(len(goodTargets))+" targets are in the linear (20-90%) range --- "+str(lowTargets)+" low targets --- "+str(highTargets)+" high targets")
