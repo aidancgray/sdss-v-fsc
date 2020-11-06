@@ -186,6 +186,8 @@ def pyguide_checking(imgArray):
         plt.pause(0.1)
 
     # Successful exposure, return True. The False is thrown away
+    #if len(goodTargets) >= 1:
+    #    goodTargets = [goodTargets[0]]
     return goodTargets
 
 def single_image(fileName):

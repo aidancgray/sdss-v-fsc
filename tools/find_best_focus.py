@@ -45,10 +45,6 @@ def create_2d_plot(dataList, fit_x, fit_y, fit_x_min, fit_y_min):
     ax.grid(True, which='both', axis='both')
     ax.legend(loc=2, fontsize='small')
 
-    pltDataName = os.path.basename(os.path.normpath(fileName))
-    plt.savefig('best_focus_'+pltDataName[:-4]+'.png')
-    plt.show()
-
     return plt
 
 def fit_poly(data):
@@ -110,4 +106,7 @@ if __name__ == "__main__":
     print('min z = '+repr(fit_x_min))
 
     plt = create_2d_plot(data, fit_x, fit_y, fit_x_min, fit_y_min)
+
+    plt.savefig(fileName[:-4]+'.png')
+    plt.show()
 
