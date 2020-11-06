@@ -60,7 +60,7 @@ SKY_LEVEL = 20 # brightness of night sky
 def show_image(imgData):
     plt.imshow(imgData, cmap="gray")
 
-def cancel():
+def cancel(p):
     """
     Sends stop commands to the CCD and Stages
     """
@@ -69,6 +69,8 @@ def cancel():
 
     send_data_tcp(9999, 'stop')
     send_data_tcp(9997, 'stop')
+    p.terminate()
+    p.kill()
     print('Done')
 
 def get_coordinates(fileName):
@@ -788,8 +790,8 @@ if __name__ == "__main__":
             else:
                 print("BAD: Select 1, 2, or 3")
         
-        cancel()
+        cancel(p)
 
     except KeyboardInterrupt:
-        cancel()
+        cancel(p)
 
