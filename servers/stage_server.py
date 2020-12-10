@@ -179,7 +179,7 @@ def get_position(lib, open_devs):
         z_pos_mm = Z_CONST*(z_pos.Position + (z_pos.uPosition / 256))
 
         r_pos_enc = r_pos.EncPosition
-        t_pos_enc = t_pos.EncPosition
+        t_pos_enc = -1 * t_pos.EncPosition
         z_pos_enc = z_pos.EncPosition
 
         all_pos = [[r_pos_mm, r_pos_enc], [t_pos_am, t_pos_enc], [z_pos_mm, z_pos_enc]]
