@@ -642,7 +642,7 @@ if __name__ == "__main__":
         print("Checking connection to hardware...")
         try:
             send_data_tcp(9999, 'status')
-            #send_data_tcp(9998, 'status')
+            send_data_tcp(9998, 'status')
             send_data_tcp(9997, 'status')
         except ConnectionRefusedError as err:
             print("...FAILED. Check hardware servers are running.")
