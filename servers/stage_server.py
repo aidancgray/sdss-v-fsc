@@ -483,7 +483,19 @@ def handle_command(log, writer, data):
                             time.sleep(0.1)
 
                     # home immediately if stage is in good position
-                    response = home(lib, open_devs[1])
+                    hmst = home_settings_t()
+                    result = lib.get_home_settings(open_devs[1], byref(hmst))
+                    
+                    if result == Result.Ok:
+                        HomeDelta = int(-8)
+                        uHomeDelta = (0)
+                        result = lib.set_home_settings(open_devs[1], byref(hmst))
+                        if result == Result.Ok:
+                            response = home(lib, open_devs[1])
+                        else:
+                            return 'BAD: set_home_settings() failed'
+                    else:
+                        response = 'BAD: set_home_settings() failed'
 
                 elif axis[:2] == 'z' and get_move_status(lib, open_devs[2]) == 'IDLE':
                     response = home(lib, open_devs[2])
@@ -511,7 +523,8 @@ def handle_command(log, writer, data):
                         time.sleep(0.1)
 
                 # home immediately if stage is in good position
-                response_t = home(lib, open_devs[1])    
+                response_t = home(lib, open_devs[1])
+
             else:
                 response_t = 'BAD: theta home failed'
 
