@@ -469,7 +469,20 @@ def handle_command(log, writer, data):
             # home given axes or all axes if len(commandList) == 1 
             for axis in commandList[1:]:
                 if axis[:2] == 'r' and get_move_status(lib, open_devs[0]) == 'IDLE':
-                    response = home(lib, open_devs[0])
+                    hmst = home_settings_t()
+                    result = lib.get_home_settings(open_devs[0], byref(hmst))
+                    
+                    if result == Result.Ok:
+                        hmst.HomeDelta = int(300)
+                        hmst.uHomeDelta = int(0)
+                        result2 = lib.set_home_settings(open_devs[0], byref(hmst))
+                        
+                        if result2 == Result.Ok:
+                            response = home(lib, open_devs[0])
+                        else:
+                            return 'BAD: set_home_settings() failed'
+                    else:
+                        response = 'BAD: set_home_settings() failed'
 
                 elif axis[:2] == 't' and get_move_status(lib, open_devs[1]) == 'IDLE':
                     t_cur_position = get_step_position(lib, open_devs[1])
@@ -487,8 +500,8 @@ def handle_command(log, writer, data):
                     result = lib.get_home_settings(open_devs[1], byref(hmst))
                     
                     if result == Result.Ok:
-                        HomeDelta = int(-8)
-                        uHomeDelta = (0)
+                        hmst.HomeDelta = int(-8)
+                        hmst.uHomeDelta = int(0)
                         result = lib.set_home_settings(open_devs[1], byref(hmst))
                         if result == Result.Ok:
                             response = home(lib, open_devs[1])
@@ -498,7 +511,19 @@ def handle_command(log, writer, data):
                         response = 'BAD: set_home_settings() failed'
 
                 elif axis[:2] == 'z' and get_move_status(lib, open_devs[2]) == 'IDLE':
-                    response = home(lib, open_devs[2])
+                    hmst = home_settings_t()
+                    result = lib.get_home_settings(open_devs[2], byref(hmst))
+                    
+                    if result == Result.Ok:
+                        hmst.HomeDelta = int(0)
+                        hmst.uHomeDelta = int(0)
+                        result = lib.set_home_settings(open_devs[2], byref(hmst))
+                        if result == Result.Ok:
+                            response = home(lib, open_devs[2])
+                        else:
+                            return 'BAD: set_home_settings() failed'
+                    else:
+                        response = 'BAD: set_home_settings() failed'
 
                 else:
                     response = 'BAD: home failed' 
