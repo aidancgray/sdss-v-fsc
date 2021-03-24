@@ -23,6 +23,17 @@ T_CONST = 0.144 # deg
 Z_CONST = 0.00125 # mm
 ######################################################
 
+#### Home Offsets ####################################
+R_HOME_DELTA = int(340)
+R_HOME_U_DELTA = int(190)
+
+T_HOME_DELTA = int(-8) 
+T_HOME_U_DELTA = int(-89)
+
+Z_HOME_DELTA = int(10590)
+Z_HOME_U_DELTA = int(0)
+######################################################
+
 #### Soft Stops ######################################
 R_SOFT_STOP_R = 305.5 #305.5
 R_SOFT_STOP_L = 0 #0
@@ -88,9 +99,8 @@ def get_move_status(lib, device_id):
 
     result = lib.get_status(device_id, byref(device_status))
     if result == Result.Ok:
-        #move_state = device_status.MoveSts # documentation says not to use this...
         move_com_state = device_status.MvCmdSts
-        #print(repr(hex(move_com_state)))
+
         if move_com_state == 129:
             return 'BUSY'
         else:
@@ -473,8 +483,14 @@ def handle_command(log, writer, data):
                     result = lib.get_home_settings(open_devs[0], byref(hmst))
                     
                     if result == Result.Ok:
-                        hmst.HomeDelta = int(300)
-                        hmst.uHomeDelta = int(0)
+                        # Set all Homing Settings
+                        hmst.FastHome = int(100)
+                        hmst.uFastHome = int(0)
+                        hmst.SlowHome = int(100)
+                        hmst.uSlowHome = int(0)
+                        hmst.HomeDelta = R_HOME_DELTA
+                        hmst.uHomeDelta = R_HOME_U_DELTA
+                        hmst.HomeFlags = int(370)
                         result2 = lib.set_home_settings(open_devs[0], byref(hmst))
                         
                         if result2 == Result.Ok:
@@ -482,7 +498,7 @@ def handle_command(log, writer, data):
                         else:
                             return 'BAD: set_home_settings() failed'
                     else:
-                        response = 'BAD: set_home_settings() failed'
+                        response = 'BAD: get_home_settings() failed'
 
                 elif axis[:2] == 't' and get_move_status(lib, open_devs[1]) == 'IDLE':
                     t_cur_position = get_step_position(lib, open_devs[1])
@@ -498,32 +514,48 @@ def handle_command(log, writer, data):
                     # home immediately if stage is in good position
                     hmst = home_settings_t()
                     result = lib.get_home_settings(open_devs[1], byref(hmst))
-                    
+
                     if result == Result.Ok:
-                        hmst.HomeDelta = int(-8)
-                        hmst.uHomeDelta = int(0)
+                        # Set all Homing settings
+                        hmst.FastHome = int(20)
+                        hmst.uFastHome = int(0)
+                        hmst.SlowHome = int(20)
+                        hmst.uSlowHome = int(0)
+                        hmst.HomeDelta = T_HOME_DELTA
+                        hmst.uHomeDelta = T_HOME_U_DELTA
+                        hmst.HomeFlags = int(114)
+
                         result = lib.set_home_settings(open_devs[1], byref(hmst))
+                        
                         if result == Result.Ok:
                             response = home(lib, open_devs[1])
                         else:
                             return 'BAD: set_home_settings() failed'
                     else:
-                        response = 'BAD: set_home_settings() failed'
+                        response = 'BAD: get_home_settings() failed'
 
                 elif axis[:2] == 'z' and get_move_status(lib, open_devs[2]) == 'IDLE':
                     hmst = home_settings_t()
                     result = lib.get_home_settings(open_devs[2], byref(hmst))
-                    
+
                     if result == Result.Ok:
-                        hmst.HomeDelta = int(0)
-                        hmst.uHomeDelta = int(0)
+                        # Set all Homing settings
+                        hmst.FastHome = int(500)
+                        hmst.uFastHome = int(0)
+                        hmst.SlowHome = int(500)
+                        hmst.uSlowHome = int(0)
+                        hmst.HomeDelta = Z_HOME_DELTA
+                        hmst.uHomeDelta = Z_HOME_U_DELTA
+                        hmst.HomeFlags = int(370)
+
                         result = lib.set_home_settings(open_devs[2], byref(hmst))
+                        
                         if result == Result.Ok:
                             response = home(lib, open_devs[2])
                         else:
                             return 'BAD: set_home_settings() failed'
                     else:
-                        response = 'BAD: set_home_settings() failed'
+                        response = 'BAD: get_home_settings() failed'
 
                 else:
                     response = 'BAD: home failed' 
@@ -531,7 +563,26 @@ def handle_command(log, writer, data):
         # Home all stages at once
         elif commandList[0] == 'home' and len(commandList) == 1:
             if get_move_status(lib, open_devs[0]) == 'IDLE':
-                response_r = home(lib, open_devs[0])
+                hmst = home_settings_t()
+                result = lib.get_home_settings(open_devs[0], byref(hmst))
+                
+                if result == Result.Ok:
+                    # Set all Homing Settings
+                    hmst.FastHome = int(100)
+                    hmst.uFastHome = int(0)
+                    hmst.SlowHome = int(100)
+                    hmst.uSlowHome = int(0)
+                    hmst.HomeDelta = R_HOME_DELTA
+                    hmst.uHomeDelta = R_HOME_U_DELTA
+                    hmst.HomeFlags = int(370)
+                    result2 = lib.set_home_settings(open_devs[0], byref(hmst))
+                    
+                    if result2 == Result.Ok:
+                        response = home(lib, open_devs[0])
+                    else:
+                        return 'BAD: set_home_settings() failed'
+                else:
+                    response = 'BAD: get_home_settings() failed'
             else:
                 response_r = 'BAD: r home failed, BUSY'
 
@@ -548,13 +599,53 @@ def handle_command(log, writer, data):
                         time.sleep(0.1)
 
                 # home immediately if stage is in good position
-                response_t = home(lib, open_devs[1])
+                hmst = home_settings_t()
+                result = lib.get_home_settings(open_devs[1], byref(hmst))
+
+                if result == Result.Ok:
+                    # Set all Homing settings
+                    hmst.FastHome = int(20)
+                    hmst.uFastHome = int(0)
+                    hmst.SlowHome = int(20)
+                    hmst.uSlowHome = int(0)
+                    hmst.HomeDelta = T_HOME_DELTA
+                    hmst.uHomeDelta = T_HOME_U_DELTA
+                    hmst.HomeFlags = int(114)
+
+                    result = lib.set_home_settings(open_devs[1], byref(hmst))
+                    
+                    if result == Result.Ok:
+                        response = home(lib, open_devs[1])
+                    else:
+                        return 'BAD: set_home_settings() failed'
+                else:
+                    response = 'BAD: get_home_settings() failed'
 
             else:
                 response_t = 'BAD: theta home failed'
 
             if get_move_status(lib, open_devs[2]) == 'IDLE':
-                response_z = home(lib, open_devs[2])
+                hmst = home_settings_t()
+                result = lib.get_home_settings(open_devs[2], byref(hmst))
+
+                if result == Result.Ok:
+                    # Set all Homing settings
+                    #hmst.FastHome = int(42)
+                    #hmst.uFastHome = int(0)
+                    #hmst.SlowHome = int(11)
+                    #hmst.uSlowHome = int(0)
+                    hmst.HomeDelta = Z_HOME_DELTA
+                    hmst.uHomeDelta = Z_HOME_U_DELTA
+                    #hmst.HomeFlags = int(114)
+
+                    result = lib.set_home_settings(open_devs[2], byref(hmst))
+                    
+                    if result == Result.Ok:
+                        response = home(lib, open_devs[2])
+                    else:
+                        return 'BAD: set_home_settings() failed'
+                else:
+                    response = 'BAD: get_home_settings() failed'
             else:
                 response_z = 'BAD: z home failed'
 
