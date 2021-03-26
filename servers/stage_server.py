@@ -23,19 +23,19 @@ T_CONST = 0.144 # deg
 Z_CONST = 0.00125 # mm
 ######################################################
 
-#### Home Offsets ####################################
+#### Home Offsets (steps) ############################
 R_HOME_DELTA = int(340)
 R_HOME_U_DELTA = int(190)
 
 T_HOME_DELTA = int(-8) 
-T_HOME_U_DELTA = int(-89)
+T_HOME_U_DELTA = int(-227)
 
 Z_HOME_DELTA = int(10590)
 Z_HOME_U_DELTA = int(0)
 ######################################################
 
 #### Soft Stops ######################################
-R_SOFT_STOP_R = 305.5 #305.5
+R_SOFT_STOP_R = 340 #305.5
 R_SOFT_STOP_L = 0 #0
 T_SOFT_STOP_R = 180 #180
 T_SOFT_STOP_L = -180 #-180
