@@ -509,7 +509,6 @@ async def handle_client(reader, writer):
 
             # send current status to open connection & log it
             #log.info('RESPONSE: '+response)
-            #writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
             writer.write((response+'\nDONE\n').encode('utf-8'))
             
         elif 'stop' in dataDec.lower():
@@ -528,7 +527,6 @@ async def handle_client(reader, writer):
 
             # send current status to open connection & log it
             log.info('RESPONSE = '+response)
-            #writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
             writer.write((response+'\nDONE\n').encode('utf-8'))
 
         else:
