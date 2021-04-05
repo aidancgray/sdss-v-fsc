@@ -222,7 +222,7 @@ def change_filter(slotNum):
     """
 
     data = 'set slot='+str(slotNum)
-    #rData = send_data_tcp(9998, data)
+    rData = send_data_tcp(9998, data)
     rData = 'OK'
     return rData
 
@@ -472,9 +472,13 @@ def single_image(coords, expType):
     z_pos = coords[2]
     expTime = coords[3]
     filt_slot = coords[4]
-
     moveCom = 'move'
 
+    # Default to light images
+    if expType == '':
+        expType = 'light'
+
+    # Only send move commands if given
     if str(r_pos) != '':
         moveCom = moveCom + ' r='+str(r_pos)
     if str(t_pos) != '':
