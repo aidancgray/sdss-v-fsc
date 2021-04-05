@@ -630,13 +630,13 @@ def handle_command(log, writer, data):
 
                 if result == Result.Ok:
                     # Set all Homing settings
-                    #hmst.FastHome = int(42)
-                    #hmst.uFastHome = int(0)
-                    #hmst.SlowHome = int(11)
-                    #hmst.uSlowHome = int(0)
+                    hmst.FastHome = int(500)
+                    hmst.uFastHome = int(0)
+                    hmst.SlowHome = int(500)
+                    hmst.uSlowHome = int(0)
                     hmst.HomeDelta = Z_HOME_DELTA
                     hmst.uHomeDelta = Z_HOME_U_DELTA
-                    #hmst.HomeFlags = int(114)
+                    hmst.HomeFlags = int(370)
 
                     result = lib.set_home_settings(open_devs[2], byref(hmst))
                     
