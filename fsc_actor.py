@@ -210,6 +210,19 @@ def expose(expType, expTime):
         except:
             return 'NULL', rData
 
+def get_filter_name():
+    """
+    Sends a 'status' command to the filter wheel and returns the
+    name of the current filter.
+
+    Output:
+    - slotName  string containing the current filter
+    """
+
+    rData = send_data_tcp(9998, 'status')
+    slotName = rData[rData.find('SLOT NAME = ')+12:rData.find('\nDONE')]
+    return slotName
+
 def change_filter(slotNum):
     """
     Sends a command to move the filter wheel to the desired slot
@@ -244,13 +257,12 @@ def check_all_status():
     Returns BUSY if ANY hardware is busy, IDLE otherwise
     """
     rData = send_data_tcp(9999, 'status')
-    #rData = rData + send_data_tcp(9998, 'status')
+    rData = rData + send_data_tcp(9998, 'status')
     rData = rData + send_data_tcp(9997, 'status')
-    #print(rData)
+
     if 'BUSY' in rData:
         return 'BUSY'
     else:
-        #print(rData)
         return 'IDLE'
 
 def get_position_enc():
@@ -259,7 +271,7 @@ def get_position_enc():
     """
     rData = send_data_tcp(9997, 'status')
 
-    # extract the encoder coders
+    # extract the encoder readings
     r_pos = rData[rData.find('r_e = ')+6:rData.find('\n\u03B8_e')]
     t_pos = rData[rData.find('\u03B8_e = ')+6:rData.find('\nz_e')]
     z_pos = rData[rData.find('z_e = ')+6:rData.find('\nr_s')]
@@ -313,13 +325,10 @@ def add_fake_stars(image, expTime, number=N_STARS, max_counts=MAX_COUNTS, sky_co
                   ('theta', [0, 2*np.pi])])
 
     randInt = random.randint(11111,99999)
-
     sources = make_random_gaussians_table(number, params,
                                           random_state=randInt)
     star_im = make_gaussian_sources_image(image.shape, sources)
-
     fakeData = image + sky_im + star_im
-
     return fakeData
 
 def pyguide_checking(imgArray):
@@ -409,7 +418,6 @@ def data_reduction(fileName, expTime):
 
     try:
         # raw file
-        #print(FILE_DIR+fileName)
         rawFile = fits.open(FILE_DIR+fileName)
         rawData = rawFile[0].data
         rawHdr = rawFile[0].header
@@ -424,7 +432,6 @@ def data_reduction(fileName, expTime):
         biasData = biasFile[0].data
         
         prcData = np.subtract(rawData,biasData)
-        #prcData = rawData
 
         # Run PyGuide Check if the switch is on
         # Otherwise assume exposure is ok
@@ -454,7 +461,6 @@ def data_reduction(fileName, expTime):
     
     except:
         print("ERR: "+repr(sys.exc_info()[0])+" "+repr(sys.exc_info()[1])+" "+repr(sys.exc_info()[2]))
-        
         return True, 'DATA REDUCTION FAILED', 0
 
 def single_image(coords, expType):
@@ -472,13 +478,13 @@ def single_image(coords, expType):
     z_pos = coords[2]
     expTime = coords[3]
     filt_slot = coords[4]
-    moveCom = 'move'
 
     # Default to light images
     if expType == '':
         expType = 'light'
 
-    # Only send move commands if given
+    # Construct the move command based on desired positions
+    moveCom = 'move'
     if str(r_pos) != '':
         moveCom = moveCom + ' r='+str(r_pos)
     if str(t_pos) != '':
@@ -491,11 +497,13 @@ def single_image(coords, expType):
     while check_all_status() == 'BUSY':
         time.sleep(0.1)	
 
+    # Only send filter change command if given
     if filt_slot != '':
         rDataF = change_filter(filt_slot)
     else:
         rDataF = 'OK'
 
+    # Only send move commands if given
     if len(moveCom) > 5:
         rDataS = stage_command(moveCom)
     else:
@@ -532,7 +540,7 @@ def single_image(coords, expType):
         else:
             # get the encoder counts to obtain precise location
             enc_positions = get_position_enc()
-            filt_slot = 'ET365LP'
+            filt_slot = get_filter_name()
             
             # update the fits header with the current position
             resp = edit_fits(fileName, [['R_POS', enc_positions[0]], ['T_POS', enc_positions[1]], ['Z_POS', enc_positions[2]], ['FILTER', filt_slot]])
@@ -684,7 +692,7 @@ if __name__ == "__main__":
 
         # Select the measurement method to use
         while methodLoop:
-            method = input("Specify measurement method\n(0) Single Image\n(1) Passive Scanning\n(2) Single Target Chasing (AUTO)\n(3) Multi-Target\n..: ")
+            method = input("Specify measurement method\n(0) Single Image\n(1) Passive Scanning\n(2) Multi-Target\n..: ")
 
             if '0' in method:
                 singleImageLoop = True
@@ -717,18 +725,13 @@ if __name__ == "__main__":
 
                     go_to_fp_coords([[r_pos, t_pos, z_pos, expTime, filt_slot]], expType, focusOffset, focusNum)
 
-                    # open image_display.py as a subprocess
-                    #p = display_images(FILE_DIR)   
-                    
-                    #single_image([r_pos, t_pos, z_pos, expTime, filt_slot], expType)
-
                     tdata = input("Again (enter key) or quit (q)? ")
 
                     if 'Q' in tdata.upper():
                         singleImageLoop = False
                         methodLoop = False
 
-            elif '1' in method or '2' in method or '3' in method:
+            elif '1' in method or '2' in method:
                 
                 userCoords = input("Specify coordinates CSV file or DEF for default: ")
 
@@ -762,19 +765,9 @@ if __name__ == "__main__":
                 if '1' in method:
                     methodLoop = False
 
-                    # open image_display.py as a subprocess
-                    #p = display_images(FILE_DIR)
-
                     go_to_fp_coords(polar_coords, expType, focusOffset, focusNum)
                     
                 elif '2' in method:
-                    print("Not yet implemented")
-                    #methodLoop = False
-                    
-                    # open image_display.py as a subprocess
-                    #p = display_images(FILE_DIR)
-                    
-                elif '3' in method:
                     methodLoop = False
 
                     # open image_display.py as a subprocess
@@ -792,7 +785,7 @@ if __name__ == "__main__":
                             print("Please type 'y' or 'n'")
                 
             else:
-                print("BAD: Select 1, 2, or 3")
+                print("BAD: Select 0, 1, or 2")
         
         cancel(p)
 
