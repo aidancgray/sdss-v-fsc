@@ -48,7 +48,7 @@ def on_created(event):
     - event     The triggered event, containing the filename
     """
     global d
-    #log.info(f"Created: {event.src_path}")
+    log.info(f"Created: {event.src_path}")
     d.set("frame clear")
     d.set("file "+event.src_path)
     time.sleep(1)
@@ -56,7 +56,7 @@ def on_created(event):
         
 if __name__ == "__main__":
     path = sys.argv[1]
-    #log = log_start()
+    log = log_start()
     try:
         d = pyds9.DS9()
     except:
