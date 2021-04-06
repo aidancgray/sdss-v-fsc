@@ -32,7 +32,7 @@ Then send a ```home``` command and wait for the DONE response.
    2. Specify the measurement method to use.
 
 ## Measurement Methods
-1. Single Image:
+1. Single Image (sends the camera to desired location and takes one image (or focus sweep)):
    1. Prompts will be given for the following inputs:
       - r position (mm): position along the r-stage axis (0 to 340)
       - t position (deg): theta-stage clocking (-180 to 180)
@@ -49,7 +49,7 @@ Then send a ```home``` command and wait for the DONE response.
       - Exposure Time default is not taking any image.
       - Focus Sweep Offset default is 0.
       - Focus Sweep # default is 0.
-2. Passive Scan:  
+2. Passive Scan (sends the camera a list of desired locations given by CSV file and takes one image (or focus sweep)):  
    1. Specify the CSV file containing the list of coordinates (or default for test file).
    2. Provide Focus Sweep settings if desired, default is just single images at each location.
 3. Multi-Target:
