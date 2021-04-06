@@ -522,6 +522,11 @@ def single_image(coords, expType):
 
     tmpExpTime = expTime
     expCount = 0
+    
+    # Don't take an image if no expTime is given
+    if expTime == '':
+        exp_check = True
+
     while not exp_check and expCount <= MAX_EXP_COUNT:
         # ensure the CCD hasn't entered an error state
         ccdTemp = check_CCD_temp()
@@ -692,9 +697,9 @@ if __name__ == "__main__":
 
         # Select the measurement method to use
         while methodLoop:
-            method = input("Specify measurement method\n(0) Single Image\n(1) Passive Scanning\n(2) Multi-Target\n..: ")
+            method = input("Specify measurement method\n(1) Single Image\n(2) Passive Scanning\n(3) Multi-Target\n(h) Home All Stages\n..: ")
 
-            if '0' in method:
+            if '1' in method:
                 singleImageLoop = True
                 while singleImageLoop:
                     r_pos = input("r position (mm): ")
@@ -731,7 +736,7 @@ if __name__ == "__main__":
                         singleImageLoop = False
                         methodLoop = False
 
-            elif '1' in method or '2' in method:
+            elif '2' in method or '3' in method:
                 
                 userCoords = input("Specify coordinates CSV file or DEF for default: ")
 
@@ -762,17 +767,12 @@ if __name__ == "__main__":
                 #polar_coords = cart2polar(fp_coords)
                 polar_coords = fp_coords
 
-                if '1' in method:
+                if '2' in method:
                     methodLoop = False
-
                     go_to_fp_coords(polar_coords, expType, focusOffset, focusNum)
                     
-                elif '2' in method:
+                elif '3' in method:
                     methodLoop = False
-
-                    # open image_display.py as a subprocess
-                    #p = display_images(FILE_DIR)
-
                     multiTargetLoop = True
                     while multiTargetLoop:
                         go_to_fp_coords(polar_coords, expType, focusOffset, focusNum)
@@ -783,9 +783,14 @@ if __name__ == "__main__":
                             print("Running again")
                         else:
                             print("Please type 'y' or 'n'")
-                
+            
+            elif 'h' in method:
+                print('homing all stages...')
+                send_data_tcp(9997, 'home')
+                print('...done')
+
             else:
-                print("BAD: Select 0, 1, or 2")
+                print("BAD: Select 1, 2, 3, or h")
         
         cancel(p)
 
