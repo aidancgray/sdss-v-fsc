@@ -725,7 +725,7 @@ def handle_command(log, writer, data):
     except IndexError:
         response = 'BAD: Invalid Command'
     
-    log.info('RESPONSE = '+response)
+    #log.info('RESPONSE = '+response)
     writer.write((response+'\n').encode('utf-8'))
     # wait for all activity to cease. handle_command() is called as a new thread
     # so this will not cause blocking 
@@ -737,7 +737,7 @@ def handle_command(log, writer, data):
         time.sleep(0.1)
 
     # tell the client the result of their command & log it
-    log.info('RESPONSE = DONE')
+    #log.info('RESPONSE = DONE')
     writer.write(('DONE\n').encode('utf-8'))
 
 # async client handler, for multiple connections
@@ -758,7 +758,7 @@ async def handle_client(reader, writer):
     while request != 'quit':        
         request = (await reader.read(255)).decode('utf8').strip()
         print(request.encode('utf8'))
-        log.info('COMMAND: '+request)
+        #log.info('COMMAND: '+request)
         writer.write(('COMMAND: '+request.upper()+'\n').encode('utf8'))    
 
         response = 'BAD'
@@ -805,7 +805,7 @@ async def handle_client(reader, writer):
                 response = 'OK: All stages IDLE'
 
             # send current status to open connection & log it
-            log.info('RESPONSE = '+response)
+            #log.info('RESPONSE = '+response)
             writer.write((response+'\nDONE\n').encode('utf-8'))
 
         else:

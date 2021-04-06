@@ -449,7 +449,7 @@ def handle_command(log, writer, data):
         response = 'BAD: Invalid Command'
         
     # tell the client the result of their command & log it
-    log.info('RESPONSE = '+response)
+    #log.info('RESPONSE = '+response)
     #writer.write((response+'\n---------------------------------------------------\n').encode('utf-8'))
     writer.write((response+'\nDONE\n').encode('utf-8'))
 
@@ -472,7 +472,7 @@ async def handle_client(reader, writer):
     while request != 'quit':        
         request = (await reader.read(255)).decode('utf8')
         print(request.encode('utf8'))
-        log.info('COMMAND = '+request)
+        #log.info('COMMAND = '+request)
         writer.write(('COMMAND = '+request.upper()+'\n').encode('utf8'))    
 
         response = 'BAD'
@@ -526,7 +526,7 @@ async def handle_client(reader, writer):
                 response = 'OK: idle'
 
             # send current status to open connection & log it
-            log.info('RESPONSE = '+response)
+            #log.info('RESPONSE = '+response)
             writer.write((response+'\nDONE\n').encode('utf-8'))
 
         else:
@@ -535,7 +535,7 @@ async def handle_client(reader, writer):
                 if comThread.is_alive():
                     response = 'BAD: busy'
                     # send current status to open connection & log it
-                    log.info('RESPONSE = '+response)
+                    #log.info('RESPONSE = '+response)
                     writer.write((response+'\nDONE\n').encode('utf-8'))
                 else:
                     # create a new thread for the command
