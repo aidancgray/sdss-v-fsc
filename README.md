@@ -6,12 +6,12 @@
 - Custom multi-axis stages from Standa Ltd.
 
 ## How to run servers:
-Run the bash script ```./start_servers.sh```.
+Run the bash script ```/gitrepos/sdss-v-fsc/start_servers.sh```.
 
 Alternatively...
 1. Startup the indiserver with ```indiserver indi_sx_ccd indi_sx_wheel```.
-2. Startup the hardware servers (as background processes) with ```nohup ./[server.py] &```.
-3. Run the script to display new images with ```nohup ./image_display.py &```.
+2. Startup the hardware servers (as background processes) with ```nohup /gitrepos/sdss-v-fsc/servers/[server.py] &```.
+3. Run the script to display new images with ```nohup /gitrepos/sdss-v-fsc/tools/image_display.py &```.
 
 ## How to connect to servers directly:
 - Simple testing can be done with ```telnet [IP Address of NUC] [PORT]```.
@@ -25,8 +25,8 @@ If you'd like to rehome the stages, connect to the stage controller server using
 Then send a ```home``` command and wait for the DONE response.
 
 ## How to run the FSC Actor, which controls all servers given a specified list of coordinates:
-1. Startup all servers with ```./start_servers.sh```.
-2. Run ```./fsc_actor.py```.
+1. Startup all servers with ```/gitrepos/sdss-v-fsc/start_servers.sh```.
+2. Run ```/gitrepos/sdss-v-fsc/fsc_actor.py```.
 3. Follow the on-screen prompts:
    1. Specify the desired image directory (or default).
    2. Specify the measurement method to use.
@@ -67,4 +67,4 @@ The power_on.sh will power on all three devices at once, and power_off.sh will p
 three devices at one.
 
 The individual devices can be powered on/off using the following script and convention:
-  ```./power.py [camera/stageA/stageB] [on/off]```
+  ```/gitrepos/sdss-v-fsc/power.py [camera/stageA/stageB] [on/off]```
