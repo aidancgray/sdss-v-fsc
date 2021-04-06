@@ -20,13 +20,41 @@ Alternatively...
     - Filter Wheel : 9998
     - Stage Controller : 9997
 
+## Homing
+If you'd like to rehome the stages, connect to the stage controller server using the procedure above.
+Then send a ```home``` command and wait for the DONE response.
+
 ## How to run the FSC Actor, which controls all servers given a specified list of coordinates:
 1. Startup all servers with ```./start_servers.sh```.
 2. Run ```./fsc_actor.py```.
 3. Follow the on-screen prompts:
    1. Specify the desired image directory (or default).
-   2. Specify the CSV file containing the list of coordinates (or default for test file).
-   3. Specify the measurement method to use.
+   2. Specify the measurement method to use.
+
+## Measurement Methods
+1. Single Image:
+   1. Prompts will be given for the following inputs:
+      - r position (mm): position along the r-stage axis (0 to 340)
+      - t position (deg): theta-stage clocking (-180 to 180)
+      - z position (mm): position along the z-stage axis (-12.5 to 12.5)
+      - filter slot (1-5): which filter to use in order (ET365LP, u', g', r', i')
+      - exposure type (light/dark/bias/flat): the type of exposure
+      - exposure time (s): the exposure time in seconds
+      - Focus sweep offset (mm): the distance between focus sweep positions
+      - Focus sweep #: the number of focus sweep positions in one direction
+
+   2. If no input is provided, defaults will be used. 
+      - Position and filter wheel defaults are no change from the current position.
+      - Exposure Type default is 'light'. 
+      - Exposure Time default is not taking any image.
+      - Focus Sweep Offset default is 0.
+      - Focus Sweep # default is 0.
+2. Passive Scan:  
+   1. Specify the CSV file containing the list of coordinates (or default for test file).
+   2. Provide Focus Sweep settings if desired, default is just single images at each location.
+3. Multi-Target:
+   1. Same as passive scan, except it repeats the scan, prompting the user to rotate the telescope 
+   after each scan.
 
 ## Controlling Power to Camera and Stage Controllers
 The camera and stage controllers can be power cycled manually using the power.py script or
