@@ -42,7 +42,6 @@ Then send a ```home``` command and wait for the DONE response.
       - exposure time (s): the exposure time in seconds
       - Focus sweep offset (mm): the distance between focus sweep positions
       - Focus sweep #: the number of focus sweep positions in one direction
-
    2. If no input is provided, defaults will be used. 
       - Position and filter wheel defaults are no change from the current position.
       - Exposure Type default is 'light'. 
