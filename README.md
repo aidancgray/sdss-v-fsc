@@ -40,4 +40,4 @@ The power_on.sh will power on all three devices at once, and power_off.sh will p
 three devices at one.
 
 The individual devices can be powered on/off using the following script and convention:
-  ./power.py [camera/stageA/stageB] [on/off]
+  ```./power.py [camera/stageA/stageB] [on/off]```
