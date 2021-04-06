@@ -3,7 +3,7 @@
 # system. It will kill: indiserver, image_display.py, trius_cam_server.py,
 # sx_filter_server.py, and stage_server.py.
 
-echo "killing running servers..."
+echo "killing any running servers..."
 for pid in $(pgrep -f indiserver); do kill $pid; done
 for pid in $(pgrep -f image_display.py); do kill $pid; done
 for pid in $(pgrep -f trius_cam_server.py); do kill $pid; done
